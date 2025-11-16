@@ -1,0 +1,41 @@
+# Ignore Docker-related files and artifacts
+
+# Docker Compose override files
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Docker environment variable files
+.env
+.env.*
+
+# Docker build directories
+docker/
+Docker/
+.docker/
+.dockerignore
+
+# Docker volumes (if stored locally)
+volumes/
+data/
+tmp/
+
+# Docker build cache
+**/build/
+**/cache/
+**/.cache/
+
+# Ignore container logs
+logs/
+*.log
+
+# Ignore any generated runtime files
+*.pid
+*.sock
+
+# VSCode remote containers
+.vscode-server/
+.devcontainer/
+
+# System files
+.DS_Store
+Thumbs.db
