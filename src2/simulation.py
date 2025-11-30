@@ -185,9 +185,9 @@ gripper_body = plant.GetBodyByName("body", wsg)  # <- this is your EE
 
 
 
-X_WG_prethrow = pose_from_q(plant, PRETHROW_JA, iiwa, gripper_body, temp_plant_context)
-X_WG_release  = pose_from_q(plant, THROWEND_JA, iiwa, gripper_body, temp_plant_context)
-X_WG_follow   = pose_from_q(plant, FOLLOW_JA, iiwa, gripper_body, temp_plant_context)
+X_WG_prethrow = pose_from_q(plant, PRETHROW_JA, temp_plant_context)
+X_WG_release  = pose_from_q(plant, THROWEND_JA, temp_plant_context)
+X_WG_follow   = pose_from_q(plant, FOLLOW_JA, temp_plant_context)
 
     
 R_WG = X_WG_hold.rotation()

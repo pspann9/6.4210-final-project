@@ -39,7 +39,9 @@ from manipulation.exercises.pick.test_differential_ik import TestDifferentialIK
 from manipulation.station import LoadScenario, MakeHardwareStation
 from manipulation.utils import RenderDiagram
 
-def pose_from_q(plant, q, iiwa, gripper_body, tmp_plant_context):
-    # q: np.array of shape (7,) with iiwa joint angles
+def pose_from_q(plant, q, tmp_plant_context):
+    iiwa = plant.GetModelInstanceByName("iiwa")
+    wsg  = plant.GetModelInstanceByName("wsg")
+    gripper_body = plant.GetBodyByName("body", wsg)
     plant.SetPositions(tmp_plant_context, iiwa, q)
     return plant.EvalBodyPoseInWorld(tmp_plant_context, gripper_body)

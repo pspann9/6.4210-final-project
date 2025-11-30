@@ -273,7 +273,7 @@ class PseudoInverseController(LeafSystem):
         if t < 6.0:
             mask = np.array([1, 1, 1, 1, 1, 1, 1])
         else:
-            mask = np.array([0, 0, 1, 1, 1, 1, 1])
+            mask = np.array([0, 0, 0, 1, 0, 1, 0])
 
         v = v * mask
 
