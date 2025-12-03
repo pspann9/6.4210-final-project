@@ -23,6 +23,7 @@ from pydrake.all import (
     PiecewisePolynomial,
     ModelInstanceIndex,
     TrajectorySource,
+    InverseKinematics,
     AddFrameTriadIllustration,
     Trajectory,
     PiecewisePose,
@@ -191,31 +192,6 @@ def BuildAndSimulate(
     meshcat.StartRecording()
     simulator.AdvanceTo(duration)
     meshcat.PublishRecording()
-    
-def DiffIKQP(
-    J_G: np.ndarray,
-    V_G_desired: np.ndarray,
-    q_now: np.ndarray,
-    v_now: np.ndarray,
-    p_now: np.ndarray,
-) -> np.ndarray:
-    prog = MathematicalProgram()
-    v = prog.NewContinuousVariables(7, "v")
-    v_max = 3.0  # do not modify
-
-    # TODO: Add cost and constraints to prog here.
-    prog.AddCost((J_G @ v - V_G_desired).dot(J_G @ v - V_G_desired))
-    prog.AddConstraint(le(v, v_max))
-    prog.AddConstraint(ge(v, -v_max))
-
-    solver = SnoptSolver()
-    result = solver.Solve(prog)
-    if not (result.is_success()):
-        raise ValueError("Could not find the optimal solution.")
-
-    v_solution = result.GetSolution(v)
-
-    return v_solution
 
 class PseudoInverseController(LeafSystem):
     def __init__(self, plant: MultibodyPlant):
@@ -240,9 +216,13 @@ class PseudoInverseController(LeafSystem):
         """
         fill in our code below.
         """
+        t = context.get_time()
+        
         # evaluate the V_G_port and q_port on the current context to get those values.
-
         V_WG_des = np.asarray(self.V_G_port.Eval(context)).reshape(6)   # [w; v] expressed in W
+        # if t >= 6.0:
+        #     speed_factor = 4.0   # try 2x, then tune
+        #     V_WG_des *= speed_factor
         q = np.asarray(self.q_port.Eval(context)).reshape(7)            # iiwa positions
 
         # update the positions of the internal _plant_context according to `q`.
@@ -269,7 +249,6 @@ class PseudoInverseController(LeafSystem):
         #    v = Jᵀ (J Jᵀ + λ² I)⁻¹ V
         v = J.T @ np.linalg.solve(J @ J.T + lam2 * np.eye(6), V_WG_des)
         
-        t = context.get_time()
         if t < 6.0:
             mask = np.array([1, 1, 1, 1, 1, 1, 1])
         else:
@@ -278,3 +257,4 @@ class PseudoInverseController(LeafSystem):
         v = v * mask
 
         output.SetFromVector(v)
+

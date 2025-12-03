@@ -23,7 +23,10 @@ from pydrake.all import (
     PiecewisePolynomial,
     ModelInstanceIndex,
     TrajectorySource,
+    Sphere,
     AddFrameTriadIllustration,
+    Multiplexer,
+    InverseKinematics,
     Trajectory,
     PiecewisePose,
     Meshcat,
@@ -39,10 +42,14 @@ from manipulation.exercises.pick.test_differential_ik import TestDifferentialIK
 from manipulation.station import LoadScenario, MakeHardwareStation
 from manipulation.utils import RenderDiagram
 
+import scipy.optimize
+
+
 from helpers import get_initial_pose, design_grasp_pose, approach_pose, make_trajectory
 from ik import PseudoInverseController
-from throw import pose_from_q
-# from interpolation import make_trajectory
+from throw import pose_from_q, V_spatial_from_q, throw_objective, plan_throw_ik_trajectory
+from interpolation import interpolate_keyframe_poses
+from pid import PDController
 
 # Start the visualizer.
 meshcat = StartMeshcat()
@@ -118,7 +125,7 @@ scenario = LoadScenario(data=scenario_data)
 # Define the builder we will use to specify the full diagram.
 # Add the hardware station to the diagram
 builder = DiagramBuilder()
-station = MakeHardwareStation(scenario, meshcat=meshcat)
+station = MakeHardwareStation(scenario, meshcat=meshcat, hardware=False)
 builder.AddSystem(station)
 plant = station.GetSubsystemByName("plant")
 
@@ -147,20 +154,22 @@ X_GO = X_OG.inverse()
 
 X_WG_hold = X_WGinitial
 X_WO_hold = X_WG_hold @ X_GO
+p_WH = X_WH.translation()
 
-heading = np.arctan2(X_WH.translation()[1], X_WH.translation()[0])
-q0 = heading - np.pi
 
-PRETHROW_JA = np.array([
+heading = np.arctan2(p_WH[1], p_WH[0])  # angle from base to hoop in world XY
+q0 = heading + np.pi
+
+PRETHROW_ANGLES = np.array([
     q0,        # base heading
     0.0,       # shoulder pan
     0.0,       # shoulder lift
-    1.8,       # big bend
+    2.0,       # big bend
     0.0,       # wrist 1
-    -1.8,      # big opposite bend
+    -2.0,      # big opposite bend
     0.0,       # wrist 2
 ])
-THROWEND_JA = np.array([
+THROWEND_ANGLES = np.array([
     q0,
     0.0,
     0.0,
@@ -169,120 +178,278 @@ THROWEND_JA = np.array([
     -0.4,      # extend
     0.0,
 ])
-FOLLOW_JA = np.array([
-    q0,
-    0.0,
-    0.0,
-    0.1,       # slight extra follow-through
-    0.0,
-    -0.1,
-    0.0,
-])
+
+
 
 iiwa = plant.GetModelInstanceByName("iiwa")
+iiwa_start = plant.GetJointByName("iiwa_joint_1").position_start()
+iiwa_nq = plant.num_positions(iiwa)
 wsg  = plant.GetModelInstanceByName("wsg")
 gripper_body = plant.GetBodyByName("body", wsg)  # <- this is your EE
 
 
+def iiwa_from_full(q_full: np.ndarray) -> np.ndarray:
+    """Extract the 7 iiwa positions from the full q."""
+    return q_full[iiwa_start : iiwa_start + iiwa_nq]
 
-X_WG_prethrow = pose_from_q(plant, PRETHROW_JA, temp_plant_context)
-X_WG_release  = pose_from_q(plant, THROWEND_JA, temp_plant_context)
-X_WG_follow   = pose_from_q(plant, FOLLOW_JA, temp_plant_context)
+def replace_iiwa_in_full(q_full: np.ndarray, q_iiwa: np.ndarray) -> np.ndarray:
+    """Return a copy of q_full with its iiwa segment replaced."""
+    q_full = np.asarray(q_full).copy()
+    q_full[iiwa_start : iiwa_start + iiwa_nq] = q_iiwa
+    return q_full
+
+def q_from_pose(plant: MultibodyPlant,
+                context: Context,
+                X_WG_target: RigidTransform,
+                q_seed: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    IK: find joint angles that put the *gripper body* at X_WG_target
+    with both position and orientation constrained.
+
+    Returns:
+        (q_iiwa, q_full)
+    """
+    ik = InverseKinematics(plant, context)
+    q_decision = ik.q()
+
+    world = plant.world_frame()
+    wsg_instance = plant.GetModelInstanceByName("wsg")
+    G = plant.GetFrameByName("body", wsg_instance)
+
+    p_WG = X_WG_target.translation()
+    R_WG = X_WG_target.rotation()
+
+    pos_eps = 1e-3
+
+    # Position: keep gripper origin near target
+    ik.AddPositionConstraint(
+        frameB=G,
+        p_BQ=np.zeros(3),
+        frameA=world,
+        p_AQ_lower=p_WG - pos_eps,
+        p_AQ_upper=p_WG + pos_eps,
+    )
+
+    # Orientation: align G with R_WG (small angle tolerance)
+    ik.AddOrientationConstraint(
+        frameAbar=world,
+        R_AbarA=R_WG,
+        frameBbar=G,
+        R_BbarB=RotationMatrix.Identity(),
+        theta_bound=0.01  # ~0.5 degrees, can relax if IK fails
+    )
+
+    prog = ik.prog()
+    prog.SetInitialGuess(q_decision, q_seed)
+
+    result = Solve(prog)
+    if not result.is_success():
+        raise RuntimeError(f"IK failed for pose:\n{X_WG_target}")
+
+    q_full = result.GetSolution(q_decision)
+
+    iiwa = plant.GetModelInstanceByName("iiwa")
+    nq_iiwa = plant.num_positions(iiwa)
+    q_iiwa = q_full[:nq_iiwa]
+
+    return q_iiwa, q_full
+
+X_WG_prethrow = pose_from_q(plant, PRETHROW_ANGLES, temp_plant_context)
+X_WG_release  = pose_from_q(plant, THROWEND_ANGLES, temp_plant_context)
 
     
 R_WG = X_WG_hold.rotation()
 p_hold = X_WG_hold.translation()
+p_WH = X_WH.translation()
+
+res = scipy.optimize.differential_evolution(
+    lambda inp: throw_objective(
+        inp,
+        plant=plant,
+        plant_context=temp_plant_context,
+        p_WH=p_WH,
+        PRETHROW_ANGLES=PRETHROW_ANGLES,
+        THROWEND_ANGLES=THROWEND_ANGLES,
+    ),
+    bounds=[(1e-3, 3.0), (0.1, 0.9)],  # time, release_frac
+    seed=43,
+)
+
+throw_motion_time, release_frac = res.x
+print("opt throw_time", throw_motion_time, "release_frac", release_frac)
 
 
 
-opened = 0.107
-closed = 0.0
-keyframes = [
-    (X_WGinitial,  opened),  # start at home, gripper open
-    (X_WG_prepick, opened),  # move above/behind the ball
-    (X_WG_pick,    opened),  # descend onto the ball
-    (X_WG_pick,    closed),  # close on the ball
-    (X_WG_prepick, closed),  # lift back up with ball grasped
-    (X_WG_hold,  closed),  
-]
 
 
-keyframes.append((X_WG_prethrow, closed))
-keyframes.append((X_WG_release,  closed)) 
-keyframes.append((X_WG_release,  opened))
-keyframes.append((X_WG_follow,  opened))
+# opened = 0.107
+# closed = 0.0
+# keyframes = [
+#     (X_WGinitial,  opened),  # start at home, gripper open
+#     (X_WG_prepick, opened),  # move above/behind the ball
+#     (X_WG_pick,    opened),  # descend onto the ball
+#     (X_WG_pick,    closed),  # close on the ball
+#     (X_WG_prepick, closed),  # lift back up with ball grasped
+#     (X_WG_hold,  closed),  
+# ]
+
+
+# keyframes.append((X_WG_prethrow, closed))
+# keyframes.append((X_WG_release,  closed)) 
+# keyframes.append((X_WG_release,  opened))
+# keyframes.append((X_WG_release,  opened))
+# keyframes.append((X_WG_release,  opened))
     
 
 
-# unpack the keyframes and use them to build `Trajectory` objects
-# note: we specify each keyframe as occuring 2 seconds after the last.
-gripper_poses = [kf[0] for kf in keyframes]
-finger_states = np.asarray([kf[1] for kf in keyframes]).reshape(1, -1)
+# # unpack the keyframes and use them to build `Trajectory` objects
+# # note: we specify each keyframe as occuring 2 seconds after the last.
+# sample_times = [
+#     0.0,               # initial
+#     1.0,
+#     2.0,
+#     3.0,
+#     4.0,
+#     5.0,
+#     t_prethrow,        # PRETHROW pose (closed)
+#     t_release,         # RELEASE pose, gripper still closed
+#     t_release_open,    # RELEASE pose, gripper open
+#     t_throw_end,        # (optional) FOLLOW pose time, use X_WG_release or X_WG_follow
+#     t_throw_end + 2
+# ]
 
-sample_times = []
-t = 0.0
-for i in range(len(keyframes)):
-    sample_times.append(t)
 
-    if i < 5:
-        t += 1.0   # pickup stuff
-    elif i == 5:
-        t += 1.0   # hold -> prethrow
-    elif i == 6:
-        t += 0.3   # prethrow -> release: throw motion
-    elif i == 7:
-        t += 0.05  # closed release -> open release: quick open
-    else:
-        t += 0.5   # follow-through
 
-traj_V_G, traj_wsg_command = make_trajectory(gripper_poses, finger_states, sample_times)
+# gripper_poses = [kf[0] for kf in keyframes]
+# # for i, X in enumerate(gripper_poses):
+# #     name = f"keyframes/sphere_{i}"
 
-# V_G_source defines a trajectory over gripper velocities. Add it to the system.
-V_G_source = builder.AddSystem(TrajectorySource(traj_V_G))
-# Add the DiffIK controller we just defined to the system
-controller = builder.AddSystem(PseudoInverseController(plant))
-# The HardwareStation expects robot commands in terms of joint angles.
-# We define the `integrator` system to map from joint_velocities to joint_angles.
-integrator = builder.AddSystem(Integrator(7))
-# wsg_source defines a trajectory of finger positions. Add it to the system.
+# #     # Different colors for different phases (optional)
+# #     if i == 0:
+# #         color = Rgba(0, 1, 0, 1)   # green = hold
+# #     elif i == 1:
+# #         color = Rgba(0, 0, 1, 1)   # blue = prethrow
+# #     else:
+# #         color = Rgba(1, 0, 0, 1)   # red = release / post-release
+
+# #     meshcat.SetObject(name, Sphere(0.08), color)   # radius 8 cm
+# #     meshcat.SetTransform(name, X.GetAsMatrix4())
+    
+# finger_states = np.asarray([kf[1] for kf in keyframes]).reshape(1, -1)
+
+
+opened = 0.107  # same values you used before
+closed = 0.0
+
+# Match the IIWA PD times
+times_wsg = [
+    0.0,    # moving from initial toward pre-pick
+    2.0,    # at pre-pick, still open
+    5.0,    # at pick pose -> CLOSE here
+    8.0,    # lifted / hold
+    10.0,   # prethrow, still holding ball
+    10.25,  # release pose -> OPEN here to throw
+    12.0,   # end of simulation
+]
+
+# 1 x N array of finger positions
+finger_knots = np.array([[
+    opened,  # 0.0
+    opened,  # 2.0
+    closed,  # 5.0  (grab ball)
+    closed,  # 8.0
+    closed,  # 10.0
+    opened,  # 10.01 (release)
+    opened,  # 12.0  (stay open)
+]])
+
+traj_wsg_command = PiecewisePolynomial.ZeroOrderHold(times_wsg, finger_knots)
 wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
 
-# TODO: connect the joint velocity source to the pseudoinverse controller
-builder.Connect(
-    V_G_source.get_output_port(),
-    controller.GetInputPort("V_WG"),
-)
+from interpolation import interpolate_keyframe_poses  # add this import at the top
 
-# TODO: connect the controller to integrator to get joint angle commands
-builder.Connect(
-    controller.GetOutputPort("iiwa.velocity"),
-    integrator.get_input_port(),
-)
+# Make, say, 300 pose samples over the whole motion
+# t_dense, pose_dense = interpolate_keyframe_poses(
+#     [X_WG_hold, X_WG_prethrow, X_WG_release, X_WG_release, X_WG_release],
+#     [0.0, t_prethrow, t_release, t_release_open, t_throw_end],
+#     num_samples=300,
+# )
+# t_throw, q_throw = plan_throw_ik_trajectory(plant, pose_dense, t_dense)
+# traj_q = PiecewisePolynomial.FirstOrderHold(t_throw, q_throw.T)
+# traj_qdot = traj_q.MakeDerivative()
 
-# TODO: connect the joint angles computed by the integrateor to the iiwa.position port on the manipulation station
-builder.Connect(
-    integrator.get_output_port(),
-    station.GetInputPort("iiwa.position"),
-)
+# OLD ######
+# traj_V_G, traj_wsg_command = make_trajectory(gripper_poses, finger_states, sample_times)
+wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
+####################
+q_seed_full = plant.GetPositions(temp_plant_context)
 
-# TODO: connect the "iiwa.position_measured" port on the station back to the relevant input port on the controller
-builder.Connect(
-    station.GetOutputPort("iiwa.position_measured"),
-    controller.GetInputPort("iiwa.position"),
-)
+# iiwa q at initial config
+q_initial = iiwa_from_full(q_seed_full)
 
-zero_torque = builder.AddSystem(ConstantVectorSource(np.zeros(7)))
-builder.Connect(
-    zero_torque.get_output_port(),
-    station.GetInputPort("iiwa.torque"),
-)
+# IK for the pickup / hold poses:
+q_prepick, q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_prepick, q_seed_full)
+q_pick,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_pick,    q_seed_full)
+q_hold,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_hold,    q_seed_full)
+q_prethrow = PRETHROW_ANGLES
+q_release  = THROWEND_ANGLES
 
-# TODO: connect the wsg_source to the "wsg.position" input port of the station
+times = [
+    0.0,   # initial
+    2.0,   # move above ball
+    5.0,   # move down to grasp
+    8.0,   # lift / hold
+    10.0,   # move to prethrow
+    10.005,  # quick transition toward release
+]
+
+q_knots = np.vstack([
+    q_initial,
+    q_prepick,
+    q_pick,
+    q_hold,
+    q_prethrow,
+    q_release,
+]).T  # shape (7, len(times))
+
+traj_q_des = PiecewisePolynomial.FirstOrderHold(times, q_knots)
+q_des_source = builder.AddSystem(TrajectorySource(traj_q_des))  
+
 builder.Connect(
     wsg_source.get_output_port(),
     station.GetInputPort("wsg.position"),
 )
 
+# q_command_source = builder.AddSystem(TrajectorySource(traj_q))
+# builder.Connect(
+#     q_command_source.get_output_port(),
+#     station.GetInputPort("iiwa.position"),
+# )
+
+# Make the PD
+kp = 300.0
+kd = 50.0
+pd = builder.AddSystem(PDController(kp, kd))
+
+# Measured [q; qdot]
+mux = builder.AddSystem(Multiplexer([7, 7]))
+builder.Connect(
+    station.GetOutputPort("iiwa.position_measured"),
+    mux.get_input_port(0)
+)
+builder.Connect(
+    station.GetOutputPort("iiwa.velocity_estimated"),
+    mux.get_input_port(1)
+)
+
+builder.Connect(mux.get_output_port(), pd.state_port)
+builder.Connect(q_des_source.get_output_port(), pd.q_des_port)
+builder.Connect(pd.output_port, station.GetInputPort("iiwa.torque"))
+
+builder.Connect(
+    station.GetOutputPort("iiwa.position_measured"),
+    station.GetInputPort("iiwa.position"),
+)
 
 # visualize axes (useful for debugging)
 scenegraph = station.GetSubsystemByName("scene_graph")
@@ -300,30 +467,32 @@ diagram = builder.Build()
 
 
 
+# path_pts = np.array([X.translation() for X in pose_dense])  # (N, 3)
+# path_pts = path_pts.T  # Meshcat expects 3xN
+
+# # Optional: clear old path
+# meshcat.Delete("planned_throw_path")
+# meshcat.SetLine(
+#     "planned_throw_path",
+#     path_pts,
+#     0.02,   # line width
+# )
 
 
-
-
+T_final = 12.0
 
 # Define the simulator.
 simulator = Simulator(diagram)
 context = simulator.get_mutable_context()
 station_context = station.GetMyContextFromRoot(context)
-integrator.set_integral_value(
-    integrator.GetMyContextFromRoot(context),
-    plant.GetPositions(
-        plant.GetMyContextFromRoot(context),
-        plant.GetModelInstanceByName("iiwa"),
-    ),
-)
 diagram.ForcedPublish(context)
-print(f"sanity check, simulation will run for {traj_V_G.end_time()} seconds")
+# print(f"sanity check, simulation will run for {traj_q.end_time()} seconds")
 
 # run simulation!
 meshcat.StartRecording()
 if running_as_notebook:
     simulator.set_target_realtime_rate(1.0)
-simulator.AdvanceTo(traj_V_G.end_time())
+simulator.AdvanceTo(T_final)
 
 meshcat.StopRecording()
 meshcat.PublishRecording()
