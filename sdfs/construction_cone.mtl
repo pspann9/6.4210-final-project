@@ -10,5 +10,5 @@ d 1
 Ni 1
 Ns 27
 illum 2
-map_Kd ../materials/textures/Construction_Cone_Diffuse.png
+map_Kd Construction_Cone_Diffuse.png
 
