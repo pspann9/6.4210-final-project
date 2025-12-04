@@ -96,10 +96,10 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: package://drake_models/manipulation_station/sphere.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere.sdf
             default_free_body_pose:
-                base_link:
-                    translation: [0.55, 0, 0]
+                body_link:
+                    translation: [0.55, 0, 0.0]
                     rotation: !Rpy { deg: [0, 0, 0] }
 
         - add_model:
@@ -120,7 +120,30 @@ scenario_data = """
 
 scenario = LoadScenario(data=scenario_data)
 
+from pydrake.all import LeafSystem, BasicVector
 
+pause_duration = 1.0
+
+class TimeVaryingGains(LeafSystem):
+    def __init__(self):
+        super().__init__()
+        self.DeclareVectorOutputPort("gains", BasicVector(2), self.Calc)
+
+    def Calc(self, context, output):
+        t = context.get_time()
+
+        t_switch = 10.0 + 0.5 * pause_duration  # halfway through prethrow pause
+
+        if t < t_switch:
+            # pickup / move / early prethrow pause -> gentle
+            kp = 300.0
+            kd = 50.0
+        else:
+            # late prethrow pause + throw -> aggressive
+            kp = 1800.0
+            kd = 1.0
+
+        output.SetFromVector([kp, kd])
 
 # Define the builder we will use to specify the full diagram.
 # Add the hardware station to the diagram
@@ -129,13 +152,14 @@ station = MakeHardwareStation(scenario, meshcat=meshcat, hardware=False)
 builder.AddSystem(station)
 plant = station.GetSubsystemByName("plant")
 
+
 # get initial poses of gripper and objects
 temp_context = station.CreateDefaultContext()
 temp_plant_context = plant.GetMyContextFromRoot(temp_context)
 X_WGinitial = plant.EvalBodyPoseInWorld(temp_plant_context, plant.GetBodyByName("body"))
 model_instance_ball = plant.GetModelInstanceByName("ball")
 X_WOball_initial = get_initial_pose(
-    plant, "base_link", model_instance_ball, temp_plant_context
+    plant, "body_link", model_instance_ball, temp_plant_context
 )
 
 
@@ -164,19 +188,19 @@ PRETHROW_ANGLES = np.array([
     q0,        # base heading
     0.0,       # shoulder pan
     0.0,       # shoulder lift
-    2.0,       # big bend
+    2.1,       # big bend
     0.0,       # wrist 1
-    -2.0,      # big opposite bend
+    -1.95,      # big opposite bend
     0.0,       # wrist 2
 ])
 THROWEND_ANGLES = np.array([
     q0,
     0.0,
     0.0,
-    0.3,       # extend
+    0.6,       # extend
     0.0,
     -0.3,      # extend
-    0,
+    0.0,
 ])
 
 
@@ -277,56 +301,19 @@ res = scipy.optimize.differential_evolution(
 
 throw_motion_time, release_frac = res.x
 print("opt throw_time", throw_motion_time, "release_frac", release_frac)
-
-
-
-# # for i, X in enumerate(gripper_poses):
-# #     name = f"keyframes/sphere_{i}"
-
-# #     # Different colors for different phases (optional)
-# #     if i == 0:
-# #         color = Rgba(0, 1, 0, 1)   # green = hold
-# #     elif i == 1:
-# #         color = Rgba(0, 0, 1, 1)   # blue = prethrow
-# #     else:
-# #         color = Rgba(1, 0, 0, 1)   # red = release / post-release
-
-# #     meshcat.SetObject(name, Sphere(0.08), color)   # radius 8 cm
-# #     meshcat.SetTransform(name, X.GetAsMatrix4())
     
+# Ignore the tiny optimized time; use a slower throw the PD can track
+# You can tune this, but 0.4–0.6 is a reasonable starting point.
+throw_duration = 0.25
+# or, if you want to keep a lower bound:
+# throw_duration = max(0.4, float(throw_motion_time))
 
 
-opened = 0.107  # same values you used before
-closed = 0.0
-
-# Match the IIWA PD times
-times_wsg = [
-    0.0,    # moving from initial toward pre-pick
-    2.0,    # at pre-pick, still open
-    5.0,    # at pick pose -> CLOSE here
-    9.0,    # lifted / hold
-    11.0,   # prethrow, still holding ball
-    11.25,  # release pose -> OPEN here to throw
-    13.0,   # end of simulation
-]
-
-# 1 x N array of finger positions
-finger_knots = np.array([[
-    opened,  # 0.0
-    opened,  # 2.0
-    closed,  # 5.0  (grab ball)
-    closed,  # 8.0
-    closed,  # 10.0
-    opened,  # 10.01 (release)
-    opened,  # 12.0  (stay open)
-]])
-
-traj_wsg_command = PiecewisePolynomial.ZeroOrderHold(times_wsg, finger_knots)
-wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
-
-from interpolation import interpolate_keyframe_poses  # add this import at the top
-
-wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
+# Fixed times for the overall sequence
+t_prethrow_arrive    = 10.0
+t_prethrow_pause_end = t_prethrow_arrive + pause_duration
+t_throw_start        = t_prethrow_pause_end
+t_throw_end          = t_throw_start + throw_duration
 
 
 q_seed_full = plant.GetPositions(temp_plant_context)
@@ -339,39 +326,90 @@ q_hold,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_hold,    q_
 q_prethrow = PRETHROW_ANGLES
 q_release  = THROWEND_ANGLES
 
+# build iiwa joint trajectory using the timing we defined above
 times = [
-    0.0,   # initial
-    2.0,   # move above ball
-    5.0,   # move down to grasp
-    7.0,   
-    9.0,   # lift / hold
-    11.0,   # move to prethrow
-    11.02,  # quick transition toward release
+    0.0,               # initial
+    2.0,               # move above ball
+    5.0,               # move down to grasp
+    8.0,               # lift / hold
+    t_prethrow_arrive, # move to prethrow
+    t_throw_start,     # pause at prethrow
+    t_throw_end,       # finish throw (reach release)
 ]
 
 q_knots = np.vstack([
-    q_initial,
-    q_prepick,
-    q_pick,
-    q_pick,
-    q_hold,
-    q_prethrow,
-    q_release,
-]).T  # shape (7, len(times))
+    q_initial,   # 0.0
+    q_prepick,   # 2.0
+    q_pick,      # 5.0
+    q_hold,      # 8.0
+    q_prethrow,  # t_prethrow_arrive
+    q_prethrow,  # t_throw_start (hold)
+    q_release,   # t_throw_end
+]).T
 
-traj_q_des = PiecewisePolynomial.FirstOrderHold(times, q_knots)
-q_des_source = builder.AddSystem(TrajectorySource(traj_q_des))  
+traj_q_des = PiecewisePolynomial.CubicShapePreserving(times, q_knots)
+q_des_source = builder.AddSystem(TrajectorySource(traj_q_des))
 
+
+opened = 0.107
+closed = 0.0
+
+# Decide when (as a fraction of the *slower* throw) you want to release.
+# 0.7–0.85 is usually “late in the swing”.
+release_frac_for_wsg = 0.9   # try 0.8 first, then tweak
+
+t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration
+
+
+times_wsg = [
+    0.0,
+    2.0,
+    5.0,
+    8.0,
+    t_prethrow_arrive,  # closed while moving to prethrow
+    t_release_wsg,      # open during the throw
+    12.0,
+]
+
+print("=== timing debug ===")
+print("throw_duration:", throw_duration)
+print("release_frac:", release_frac)
+print("t_throw_start:", t_throw_start)
+print("t_throw_end:", t_throw_end)
+print("t_release_wsg:", t_release_wsg)
+print("times_wsg:", times_wsg)
+
+
+# 1 x N array of finger positions
+finger_knots = np.array([[ 
+    opened,   # 0.0
+    opened,   # 2.0
+    closed,   # 5.0 (grab ball)
+    closed,   # 8.0
+    closed,   # at prethrow
+    opened,   # release
+    opened,   # stay open
+]])
+
+traj_wsg_command = PiecewisePolynomial.ZeroOrderHold(times_wsg, finger_knots)
+wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
 builder.Connect(
     wsg_source.get_output_port(),
     station.GetInputPort("wsg.position"),
 )
 
 
-# Make the PD
-kp = 750.0
-kd = 50.0
-pd = builder.AddSystem(PDController(kp, kd))
+
+
+# Make the PD (now with time-varying gains)
+pd = builder.AddSystem(PDController())
+
+# Time-varying gains → [kp, kd]
+gain_sched = builder.AddSystem(TimeVaryingGains())
+builder.Connect(gain_sched.get_output_port(0), pd.gains_port)
+# or equivalently:
+# builder.Connect(gain_sched.get_output_port(), pd.gains_port)
+
 
 # Measured [q; qdot]
 mux = builder.AddSystem(Multiplexer([7, 7]))
@@ -379,6 +417,7 @@ builder.Connect(
     station.GetOutputPort("iiwa.position_measured"),
     mux.get_input_port(0)
 )
+
 builder.Connect(
     station.GetOutputPort("iiwa.velocity_estimated"),
     mux.get_input_port(1)
@@ -397,7 +436,7 @@ builder.Connect(
 scenegraph = station.GetSubsystemByName("scene_graph")
 AddFrameTriadIllustration(
     scene_graph=scenegraph,
-    body=plant.GetBodyByName("base_link", model_instance_ball),
+    body=plant.GetBodyByName("body_link", model_instance_ball),
     length=0.1,
 )
 

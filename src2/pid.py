@@ -30,33 +30,43 @@ from pydrake.all import (
 )
 
 class PDController(LeafSystem):
-    """PD controller for the IIWA robot with time-varying q_desired."""
+    """PD controller for the IIWA robot with time-varying q_desired and time-varying gains."""
 
-    def __init__(self, kp: float, kd: float) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         # Measured [q; qdot]
         self.state_port = self.DeclareVectorInputPort("iiwa_state", 14)
-        # Desired [q_des; qdot_des] OR just q_des (I'll use just q_des here)
+
+        # Desired joint positions q_des
         self.q_des_port = self.DeclareVectorInputPort("q_desired", 7)
 
+        # NEW: time-varying gains [kp, kd]
+        self.gains_port = self.DeclareVectorInputPort("gains", 2)
+
+        # Output: torque command
         self.output_port = self.DeclareVectorOutputPort(
             "iiwa_torque", 7, self.ComputeTorque
         )
 
-        self.kp = kp
-        self.kd = kd
-
     def ComputeTorque(self, context: Context, output: BasicVector) -> None:
+        # Read current state
         x = self.state_port.Eval(context)
         q = x[:7]
         qdot = x[7:]
 
+        # Desired joint positions (qdot_des = 0)
         q_des = self.q_des_port.Eval(context)
-        qdot_des = np.zeros(7)  # still zero if you want simple PD
+        qdot_des = np.zeros(7)
 
+        # Read kp, kd from input port
+        gains = self.gains_port.Eval(context)
+        kp = gains[0]
+        kd = gains[1]
+
+        # PD law
         position_error = q_des - q
         velocity_error = qdot_des - qdot
 
-        torque = self.kp * position_error + self.kd * velocity_error
+        torque = kp * position_error + kd * velocity_error
         output.set_value(torque)
