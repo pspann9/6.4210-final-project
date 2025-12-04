@@ -173,10 +173,10 @@ THROWEND_ANGLES = np.array([
     q0,
     0.0,
     0.0,
-    0.4,       # extend
+    0.3,       # extend
     0.0,
-    -0.4,      # extend
-    0.0,
+    -0.3,      # extend
+    0,
 ])
 
 
@@ -280,47 +280,6 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
 
 
 
-
-
-# opened = 0.107
-# closed = 0.0
-# keyframes = [
-#     (X_WGinitial,  opened),  # start at home, gripper open
-#     (X_WG_prepick, opened),  # move above/behind the ball
-#     (X_WG_pick,    opened),  # descend onto the ball
-#     (X_WG_pick,    closed),  # close on the ball
-#     (X_WG_prepick, closed),  # lift back up with ball grasped
-#     (X_WG_hold,  closed),  
-# ]
-
-
-# keyframes.append((X_WG_prethrow, closed))
-# keyframes.append((X_WG_release,  closed)) 
-# keyframes.append((X_WG_release,  opened))
-# keyframes.append((X_WG_release,  opened))
-# keyframes.append((X_WG_release,  opened))
-    
-
-
-# # unpack the keyframes and use them to build `Trajectory` objects
-# # note: we specify each keyframe as occuring 2 seconds after the last.
-# sample_times = [
-#     0.0,               # initial
-#     1.0,
-#     2.0,
-#     3.0,
-#     4.0,
-#     5.0,
-#     t_prethrow,        # PRETHROW pose (closed)
-#     t_release,         # RELEASE pose, gripper still closed
-#     t_release_open,    # RELEASE pose, gripper open
-#     t_throw_end,        # (optional) FOLLOW pose time, use X_WG_release or X_WG_follow
-#     t_throw_end + 2
-# ]
-
-
-
-# gripper_poses = [kf[0] for kf in keyframes]
 # # for i, X in enumerate(gripper_poses):
 # #     name = f"keyframes/sphere_{i}"
 
@@ -335,7 +294,6 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
 # #     meshcat.SetObject(name, Sphere(0.08), color)   # radius 8 cm
 # #     meshcat.SetTransform(name, X.GetAsMatrix4())
     
-# finger_states = np.asarray([kf[1] for kf in keyframes]).reshape(1, -1)
 
 
 opened = 0.107  # same values you used before
@@ -346,10 +304,10 @@ times_wsg = [
     0.0,    # moving from initial toward pre-pick
     2.0,    # at pre-pick, still open
     5.0,    # at pick pose -> CLOSE here
-    8.0,    # lifted / hold
-    10.0,   # prethrow, still holding ball
-    10.25,  # release pose -> OPEN here to throw
-    12.0,   # end of simulation
+    9.0,    # lifted / hold
+    11.0,   # prethrow, still holding ball
+    11.25,  # release pose -> OPEN here to throw
+    13.0,   # end of simulation
 ]
 
 # 1 x N array of finger positions
@@ -368,23 +326,10 @@ wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
 
 from interpolation import interpolate_keyframe_poses  # add this import at the top
 
-# Make, say, 300 pose samples over the whole motion
-# t_dense, pose_dense = interpolate_keyframe_poses(
-#     [X_WG_hold, X_WG_prethrow, X_WG_release, X_WG_release, X_WG_release],
-#     [0.0, t_prethrow, t_release, t_release_open, t_throw_end],
-#     num_samples=300,
-# )
-# t_throw, q_throw = plan_throw_ik_trajectory(plant, pose_dense, t_dense)
-# traj_q = PiecewisePolynomial.FirstOrderHold(t_throw, q_throw.T)
-# traj_qdot = traj_q.MakeDerivative()
-
-# OLD ######
-# traj_V_G, traj_wsg_command = make_trajectory(gripper_poses, finger_states, sample_times)
 wsg_source = builder.AddSystem(TrajectorySource(traj_wsg_command))
-####################
-q_seed_full = plant.GetPositions(temp_plant_context)
 
-# iiwa q at initial config
+
+q_seed_full = plant.GetPositions(temp_plant_context)
 q_initial = iiwa_from_full(q_seed_full)
 
 # IK for the pickup / hold poses:
@@ -398,14 +343,16 @@ times = [
     0.0,   # initial
     2.0,   # move above ball
     5.0,   # move down to grasp
-    8.0,   # lift / hold
-    10.0,   # move to prethrow
-    10.005,  # quick transition toward release
+    7.0,   
+    9.0,   # lift / hold
+    11.0,   # move to prethrow
+    11.02,  # quick transition toward release
 ]
 
 q_knots = np.vstack([
     q_initial,
     q_prepick,
+    q_pick,
     q_pick,
     q_hold,
     q_prethrow,
@@ -420,14 +367,9 @@ builder.Connect(
     station.GetInputPort("wsg.position"),
 )
 
-# q_command_source = builder.AddSystem(TrajectorySource(traj_q))
-# builder.Connect(
-#     q_command_source.get_output_port(),
-#     station.GetInputPort("iiwa.position"),
-# )
 
 # Make the PD
-kp = 300.0
+kp = 750.0
 kd = 50.0
 pd = builder.AddSystem(PDController(kp, kd))
 
@@ -466,27 +408,13 @@ AddFrameTriadIllustration(
 diagram = builder.Build()
 
 
-
-# path_pts = np.array([X.translation() for X in pose_dense])  # (N, 3)
-# path_pts = path_pts.T  # Meshcat expects 3xN
-
-# # Optional: clear old path
-# meshcat.Delete("planned_throw_path")
-# meshcat.SetLine(
-#     "planned_throw_path",
-#     path_pts,
-#     0.02,   # line width
-# )
-
-
-T_final = 12.0
+T_final = 13.0
 
 # Define the simulator.
 simulator = Simulator(diagram)
 context = simulator.get_mutable_context()
 station_context = station.GetMyContextFromRoot(context)
 diagram.ForcedPublish(context)
-# print(f"sanity check, simulation will run for {traj_q.end_time()} seconds")
 
 # run simulation!
 meshcat.StartRecording()

@@ -47,7 +47,7 @@ def approach_pose(X_WG: RigidTransform) -> RigidTransform:
     """
     fill in our code below
     """
-    X_GGapproach = RigidTransform(p=np.array([0.0, -0.1, 0.0]))
+    X_GGapproach = RigidTransform(p=np.array([0.0, -0.15, 0.0]))
     X_WGApproach = X_WG @ X_GGapproach
     return X_WGApproach
 
