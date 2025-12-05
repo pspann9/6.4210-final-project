@@ -140,7 +140,7 @@ class TimeVaryingGains(LeafSystem):
             kd = 50.0
         else:
             # late prethrow pause + throw -> aggressive
-            kp = 1800.0
+            kp = 3000.0
             kd = 1.0
 
         output.SetFromVector([kp, kd])
@@ -202,7 +202,15 @@ THROWEND_ANGLES = np.array([
     -0.3,      # extend
     0.0,
 ])
-
+MIDTHROW_ANGLES = np.array([
+    q0,        # base heading
+    0.0,       # shoulder pan
+    0.0,       # shoulder lift
+    1.9,       # big bend
+    0.0,       # wrist 1
+    -0.3,      # big opposite bend
+    0.0,       # wrist 2
+])
 
 
 iiwa = plant.GetModelInstanceByName("iiwa")
@@ -304,7 +312,7 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
     
 # Ignore the tiny optimized time; use a slower throw the PD can track
 # You can tune this, but 0.4–0.6 is a reasonable starting point.
-throw_duration = 0.25
+throw_duration = 0.2
 # or, if you want to keep a lower bound:
 # throw_duration = max(0.4, float(throw_motion_time))
 
@@ -317,6 +325,8 @@ t_throw_end          = t_throw_start + throw_duration
 
 
 q_seed_full = plant.GetPositions(temp_plant_context)
+
+# iiwa q at initial config
 q_initial = iiwa_from_full(q_seed_full)
 
 # IK for the pickup / hold poses:
@@ -324,6 +334,7 @@ q_prepick, q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_prepick, q_
 q_pick,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_pick,    q_seed_full)
 q_hold,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_hold,    q_seed_full)
 q_prethrow = PRETHROW_ANGLES
+q_midthrow = MIDTHROW_ANGLES
 q_release  = THROWEND_ANGLES
 
 # build iiwa joint trajectory using the timing we defined above
@@ -334,6 +345,7 @@ times = [
     8.0,               # lift / hold
     t_prethrow_arrive, # move to prethrow
     t_throw_start,     # pause at prethrow
+    (t_throw_start + t_throw_end) / 2,     # pause at prethrow
     t_throw_end,       # finish throw (reach release)
 ]
 
@@ -344,6 +356,7 @@ q_knots = np.vstack([
     q_hold,      # 8.0
     q_prethrow,  # t_prethrow_arrive
     q_prethrow,  # t_throw_start (hold)
+    q_midthrow,  # t_throw_start (hold)
     q_release,   # t_throw_end
 ]).T
 
@@ -356,7 +369,7 @@ closed = 0.0
 
 # Decide when (as a fraction of the *slower* throw) you want to release.
 # 0.7–0.85 is usually “late in the swing”.
-release_frac_for_wsg = 0.9   # try 0.8 first, then tweak
+release_frac_for_wsg = 1.2  # try 0.8 first, then tweak
 
 t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration
 
@@ -407,8 +420,6 @@ pd = builder.AddSystem(PDController())
 # Time-varying gains → [kp, kd]
 gain_sched = builder.AddSystem(TimeVaryingGains())
 builder.Connect(gain_sched.get_output_port(0), pd.gains_port)
-# or equivalently:
-# builder.Connect(gain_sched.get_output_port(), pd.gains_port)
 
 
 # Measured [q; qdot]
@@ -446,7 +457,6 @@ AddFrameTriadIllustration(
 
 diagram = builder.Build()
 
-
 T_final = 13.0
 
 # Define the simulator.
@@ -454,6 +464,7 @@ simulator = Simulator(diagram)
 context = simulator.get_mutable_context()
 station_context = station.GetMyContextFromRoot(context)
 diagram.ForcedPublish(context)
+
 
 # run simulation!
 meshcat.StartRecording()
@@ -463,3 +474,4 @@ simulator.AdvanceTo(T_final)
 
 meshcat.StopRecording()
 meshcat.PublishRecording()
+

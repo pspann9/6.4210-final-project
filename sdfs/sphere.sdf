@@ -45,8 +45,8 @@
           <drake_hydroelastic_modulus>1e7</drake_hydroelastic_modulus>
           <drake_hunt_crossley_dissipation>1.0</drake_hunt_crossley_dissipation>
           <drake_relaxation_time>0.0</drake_relaxation_time>
-          <mu_dynamic>0.5</mu_dynamic>
-          <mu_static>0.9</mu_static>
+          <mu_dynamic>2</mu_dynamic>
+          <mu_static>2</mu_static>
         </drake:proximity_properties>
       </collision>
     </link>
