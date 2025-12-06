@@ -25,7 +25,9 @@
           </mesh>
         </geometry>
         <material>
-          <diffuse>0.53 0.01 0.53 1.0</diffuse>
+          <ambient>1.0 0.0 0.0 1.0</ambient>
+          <diffuse>1.0 0.0 0.0 1.0</diffuse>
+          <specular>0.1 0.1 0.1 1.0</specular>
         </material>
       </visual>
       <collision name="sphere_collision">

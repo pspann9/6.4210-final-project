@@ -248,19 +248,25 @@ model_drivers:
 cameras:
     camera0:
         name: camera0
+        rgb: True
         depth: True
         X_PB:
             base_frame: camera0::base
+
     camera1:
         name: camera1
+        rgb: True
         depth: True
         X_PB:
             base_frame: camera1::base
+
     camera2:
         name: camera2
+        rgb: True
         depth: True
         X_PB:
             base_frame: camera2::base
+
 """
     # TODO: add the camera configs and iiwa drivers with `add_cameras` and `add_iiwa_drivers`
 
@@ -275,7 +281,7 @@ cameras:
 
 create_bimanual_IIWA14_with_assets_and_cameras_scenario()
 
-
+from pydrake.perception import Fields
 def create_bimanual_IIWA14_with_table_and_initials_and_assets_and_cameras() -> (
     tuple[DiagramBuilder, RobotDiagram]
 ):
@@ -292,6 +298,7 @@ def create_bimanual_IIWA14_with_table_and_initials_and_assets_and_cameras() -> (
     station = builder.AddSystem(station)
 
     # TODO: Add the point clouds to the diagram with AddPointClouds
+    print("DIS HO", dir(PointCloud.C))
     to_point_cloud = AddPointClouds(
         scenario=scenario, station=station, builder=builder, meshcat=meshcat
     )
@@ -306,6 +313,96 @@ def create_bimanual_IIWA14_with_table_and_initials_and_assets_and_cameras() -> (
     
     return builder, station
 
+
+from pydrake.perception import DepthImageToPointCloud, BaseField
+from pydrake.systems.sensors import PixelType, CameraInfo
+from pydrake.systems.primitives import ConstantValueSource
+from pydrake.math import RigidTransform, RollPitchYaw
+from pydrake.common.value import AbstractValue
+import numpy as np
+
+# def create_bimanual_IIWA14_with_table_and_initials_and_assets_and_cameras() -> (
+#     tuple[DiagramBuilder, RobotDiagram]
+# ):
+#     # Load the scenario created above into a Scenario object
+#     scenario = LoadScenario(
+#         filename="scenarios/bimanual_IIWA14_with_table_and_initials_and_assets_and_cameras.scenario.yaml"
+#     )
+    
+#     # Create HardwareStation with the scenario and meshcat
+#     station = MakeHardwareStation(scenario, meshcat)
+    
+#     # Make a DiagramBuilder, add the station, and build the diagram
+#     builder = DiagramBuilder()
+#     station = builder.AddSystem(station)
+    
+#     # Create a default camera info
+#     camera_info = CameraInfo(width=640, height=480, fov_y=0.7854)
+    
+#     # Camera poses from your directives (these are fixed)
+#     camera_poses = {
+#         "camera0": RigidTransform(
+#             RollPitchYaw(np.deg2rad([-140.0, 0.0, 180.0])).ToRotationMatrix(),
+#             [0, 2, 2]
+#         ),
+#         "camera1": RigidTransform(
+#             RollPitchYaw(np.deg2rad([-140, 0.0, 90.0])).ToRotationMatrix(),
+#             [2, 0.1, 2]
+#         ),
+#         "camera2": RigidTransform(
+#             RollPitchYaw(np.deg2rad([-140.0, 0.0, -90.0])).ToRotationMatrix(),
+#             [-2, 0.1, 2]
+#         ),
+#     }
+    
+#     # Manually add point clouds with RGB support
+#     to_point_cloud = {}
+    
+#     for camera_name in ["camera0", "camera1", "camera2"]:
+#         # Create depth-to-point-cloud converter
+#         # The key insight: pixel_type refers to DEPTH image type
+#         # RGB comes from the color_image port connection
+#         depth_to_pc = builder.AddSystem(
+#             DepthImageToPointCloud(
+#                 camera_info=camera_info,
+#                 pixel_type=PixelType.kDepth32F,
+#                 scale=1.0,
+#                 fields=10  # Use the combined value directly: kXYZs | kRGBs = 10
+#             )
+#         )
+        
+#         # Connect depth image
+#         builder.Connect(
+#             station.GetOutputPort(f"{camera_name}.depth_image"),
+#             depth_to_pc.depth_image_input_port()
+#         )
+        
+#         # Connect RGB image - this is REQUIRED for RGB data
+#         builder.Connect(
+#             station.GetOutputPort(f"{camera_name}.rgb_image"),
+#             depth_to_pc.color_image_input_port()
+#         )
+        
+#         # Create constant source for camera pose
+#         pose_source = builder.AddSystem(
+#             ConstantValueSource(AbstractValue.Make(camera_poses[camera_name]))
+#         )
+#         builder.Connect(
+#             pose_source.get_output_port(),
+#             depth_to_pc.camera_pose_input_port()
+#         )
+        
+#         # Export point cloud output
+#         builder.ExportOutput(
+#             depth_to_pc.point_cloud_output_port(),
+#             f"{camera_name}_point_cloud"
+#         )
+        
+#         to_point_cloud[camera_name] = depth_to_pc
+    
+#     # Return the builder AND the station
+#     return builder, station
+    
 
 builder, station = (
     create_bimanual_IIWA14_with_table_and_initials_and_assets_and_cameras()
@@ -400,22 +497,77 @@ downsampled_point_cloud = merged_point_cloud.VoxelizedDownSample(0.005)
 # TODO: implement a function that removes all points in the point cloud that lie below z=0.01
 
 
+# def remove_table_points(point_cloud: PointCloud) -> PointCloud:
+#     xyz = point_cloud.xyzs()                 # 3 x N
+#     mask = np.isfinite(xyz).all(axis=0) & (xyz[2, :] >= 0.01)
+#     idx = np.nonzero(mask)[0]
+
+#     out = PointCloud(idx.size)      # new cloud with only XYZ
+#     out.mutable_xyzs()[:] = xyz[:, idx]
+#     return out
+
+def copy_filtered(point_cloud: PointCloud, idx: np.ndarray) -> PointCloud:
+    """Return a new PointCloud containing only indices in idx,
+    preserving XYZ and any present per-point fields (RGBs, normals)."""
+    out = PointCloud(idx.size, fields=point_cloud.fields())
+
+    # XYZs always exist
+    out.mutable_xyzs()[:] = point_cloud.xyzs()[:, idx]
+
+    # Copy RGBs only if the source has them
+    if point_cloud.has_rgbs():
+        out.mutable_rgbs()[:] = point_cloud.rgbs()[:, idx]
+
+    # Copy normals if present
+    if point_cloud.has_normals():
+        out.mutable_normals()[:] = point_cloud.normals()[:, idx]
+
+    # Add any other field checks here if you need them (e.g., intensities).
+    return out
+
+
 def remove_table_points(point_cloud: PointCloud) -> PointCloud:
     xyz = point_cloud.xyzs()                 # 3 x N
     mask = np.isfinite(xyz).all(axis=0) & (xyz[2, :] >= 0.01)
     idx = np.nonzero(mask)[0]
 
-    out = PointCloud(idx.size)      # new cloud with only XYZ
-    out.mutable_xyzs()[:] = xyz[:, idx]
-    return out
+    # quick path: no filtering required
+    if idx.size == point_cloud.size():
+        return point_cloud
+
+    return copy_filtered(point_cloud, idx)
+
+
+
+# def remove_non_back_points(point_cloud: PointCloud) -> PointCloud:
+#     xyz = point_cloud.xyzs()                 # 3 x N
+#     mask = np.isfinite(xyz).all(axis=0) & (xyz[1, :] >= 0.5)
+#     idx = np.nonzero(mask)[0]
+
+#     out = PointCloud(idx.size)      # new cloud with only XYZ
+#     out.mutable_xyzs()[:] = xyz[:, idx]
+#     return out
+
 
 def remove_non_back_points(point_cloud: PointCloud) -> PointCloud:
-    xyz = point_cloud.xyzs()                 # 3 x N
+    xyz = point_cloud.xyzs()  # 3 x N
     mask = np.isfinite(xyz).all(axis=0) & (xyz[1, :] >= 0.5)
     idx = np.nonzero(mask)[0]
 
-    out = PointCloud(idx.size)      # new cloud with only XYZ
+    # If nothing filtered out, just return original cloud
+    if idx.size == point_cloud.size():
+        return point_cloud
+
+    # Create new cloud with same fields (XYZ + RGB + normals, etc)
+    out = PointCloud(idx.size, fields=point_cloud.fields())
     out.mutable_xyzs()[:] = xyz[:, idx]
+
+    if point_cloud.has_rgbs():
+        out.mutable_rgbs()[:] = point_cloud.rgbs()[:, idx]
+
+    if point_cloud.has_normals():
+        out.mutable_normals()[:] = point_cloud.normals()[:, idx]
+
     return out
 
 
@@ -433,9 +585,9 @@ merged_obstacle_pc = remove_non_back_points(merged_obstacle_pc)
 
 
 # visualize the concatenated point clouds
-meshcat.SetObject(
-    "ball_point_cloud", ball_point_cloud, point_size=0.05, rgba=Rgba(1, 0, 0)
-)
+# meshcat.SetObject(
+#     "ball_point_cloud", ball_point_cloud, point_size=0.05, rgba=Rgba(1, 0, 0)
+# )
 
 #################
 meshcat.SetObject(
@@ -455,6 +607,47 @@ initial_guess = RigidTransform(
 # TODO: convert both the model and generated point clouds to numpy arrays to pass into the ICP function
 model_points = cloud.xyzs() 
 scene_points = ball_point_cloud.VoxelizedDownSample(0.005).xyzs()
+pc = diagram.GetOutputPort("camera0_point_cloud").Eval(context)
+print("Point cloud fields:", pc.fields())
+print("Has RGBs:", pc.has_rgbs())
+# Try this approach instead:
+camera0_pc = diagram.GetOutputPort("camera0_point_cloud").Eval(context)
+camera1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context)
+camera2_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context)
+
+print("Camera0 has RGBs:", camera0_pc.has_rgbs())
+print("Camera1 has RGBs:", camera1_pc.has_rgbs())
+print("Camera2 has RGBs:", camera2_pc.has_rgbs())
+
+# Crop each one
+camera0_cropped = camera0_pc.Crop(ball_lower, ball_upper)
+print("Camera0 after crop has RGBs:", camera0_cropped.has_rgbs())
+
+camera1_cropped = camera1_pc.Crop(ball_lower, ball_upper)
+camera2_cropped = camera2_pc.Crop(ball_lower, ball_upper)
+
+# Try concatenating
+merged = Concatenate([camera0_cropped, camera1_cropped, camera2_cropped])
+print("Merged has RGBs:", merged.has_rgbs())
+print("Has RGBs:", ball_point_cloud.has_rgbs())
+print("Has XYZs:", ball_point_cloud.has_xyzs())
+print("HEYYYY", ball_point_cloud.rgbs())
+# from pydrake.perception import DepthImage, ColorCamera, CameraInfo
+station_context = station.GetMyContextFromRoot(context)
+depth_image = station.GetOutputPort("camera0.depth_image").Eval(station_context)
+rgb_image = station.GetOutputPort("camera0.rgb_image").Eval(station_context)
+
+rgb_np = np.array(rgb_image.data).reshape(rgb_image.height(), rgb_image.width(), 4)
+
+# Now you can index it
+pixel_color = rgb_np[1, 1, :3] 
+
+print("FUCKKKKK", pixel_color)
+###########
+print("HEEEEY", rgb_image)
+
+
+
 
 # TODO: register the point clouds with the model_points point clouds using ICP for each of the letters
 ball_X_Ohat, error_ball = IterativeClosestPoint(
@@ -463,6 +656,59 @@ ball_X_Ohat, error_ball = IterativeClosestPoint(
     X_Ohat=initial_guess,     
     max_iterations=MAX_ITERATIONS
 )
+
+def rgb_at_pose(point_cloud, X_Ohat: RigidTransform, query_point: np.ndarray = None, radius: float = None):
+    """
+    Get the RGB color from a point cloud at a given world pose.
+
+    Args:
+        point_cloud: Drake PointCloud with xyzs() and rgbs().
+        X_Ohat: RigidTransform representing the pose of the object in world frame.
+        query_point: Optional 3-element array specifying a query position in world frame.
+                     If None, defaults to X_Ohat.translation() (object center).
+        radius: Optional radius for averaging points around query_point. If None, uses closest point.
+
+    Returns:
+        color: 3-element np.ndarray with RGB values in [0,1].
+    """
+    # Transform points to world frame
+    xyzs = point_cloud.xyzs()  # 3 x N
+    rgbs = point_cloud.rgbs()  # 3 x N
+
+    R = X_Ohat.rotation().matrix()
+    t = X_Ohat.translation()
+    xyzs_W = R @ xyzs + t[:, np.newaxis]
+
+    # Default query point is object center
+    if query_point is None:
+        query_point = t
+
+    if radius is None:
+        # Return RGB of closest point
+        dists = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0)
+        idx = np.argmin(dists)
+        color = rgbs[:, idx]
+    else:
+        # Average RGB over all points within radius
+        mask = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0) < radius
+        if np.sum(mask) == 0:
+            # fallback: closest point
+            dists = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0)
+            idx = np.argmin(dists)
+            color = rgbs[:, idx]
+        else:
+            color = np.mean(rgbs[:, mask], axis=1)
+
+    return color
+
+print("BIG SHITTTTTTTTT") 
+# Get RGB at the ICP-aligned ball pose (object center)
+ball_color = rgb_at_pose(ball_point_cloud, ball_X_Ohat)
+print("Ball color (RGB):", ball_color)
+
+# Or average color over a 5 cm neighborhood around center
+ball_color_avg = rgb_at_pose(ball_point_cloud, ball_X_Ohat, radius=0.05)
+print("Average ball color (RGB):", ball_color_avg)
 
 ################
 obstacle_mesh = trimesh.load("sdfs/construction_cone.obj", force='mesh')

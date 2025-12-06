@@ -1,0 +1,35 @@
+
+directives:
+    - add_directives:
+        file: file:///workspaces/6.4210-final-project/directives/bimanual_IIWA14_with_table_and_initials_and_assets.dmd.yaml
+    - add_directives:
+        file: file:///workspaces/6.4210-final-project/directives/camera_directives.dmd.yaml
+
+model_drivers:
+    iiwa: !IiwaDriver
+        control_mode: position_only
+        hand_model_name: wsg
+    wsg: !SchunkWsgDriver {}
+
+cameras:
+    camera0:
+        name: camera0
+        rgb: True
+        depth: True
+        X_PB:
+            base_frame: camera0::base
+
+    camera1:
+        name: camera1
+        rgb: True
+        depth: True
+        X_PB:
+            base_frame: camera1::base
+
+    camera2:
+        name: camera2
+        rgb: True
+        depth: True
+        X_PB:
+            base_frame: camera2::base
+
