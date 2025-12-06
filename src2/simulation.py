@@ -105,7 +105,7 @@ scenario_data = """
                 
         - add_model:
             name: bin
-            file: package://drake_models/manipulation_station/bin.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/bin.sdf
             
         - add_weld:
             parent: world
@@ -120,7 +120,7 @@ scenario_data = """
             X_PF:
                 base_frame: world
                 rotation: !Rpy { deg: [-140.0, 0.0, 180.0]}
-                translation: [0, 2, 2] # [0, 0.8, 0.5]
+                translation: [0, 4, 2] # [0, 0.8, 0.5]
 
         - add_model:
             name: camera0
@@ -135,7 +135,7 @@ scenario_data = """
             X_PF:
                 base_frame: world
                 rotation: !Rpy { deg: [-140, 0.0, 90.0]}
-                translation: [2, 0.1, 2] # [0.8, 0.1, 0.5]
+                translation: [4, 0, 2] # [0.8, 0.1, 0.5]
 
         - add_model:
             name: camera1
@@ -150,7 +150,7 @@ scenario_data = """
             X_PF:
                 base_frame: world
                 rotation: !Rpy { deg: [-140.0, 0.0, -90.0]}
-                translation: [-2, 0.1, 2] # [-0.8, 0.1, 0.5]
+                translation: [-4, 0, 2] # [-0.8, 0.1, 0.5]
 
         - add_model:
             name: camera2
@@ -159,6 +159,21 @@ scenario_data = """
         - add_weld:
             parent: camera2_origin
             child: camera2::base
+
+        - add_frame:
+            name: camera3_origin
+            X_PF:
+                base_frame: world
+                rotation: !Rpy { deg: [-140.0, 0.0, -180.0]}
+                translation: [0, -4, 2] # [-0.8, 0.1, 0.5]
+
+        - add_model:
+            name: camera3
+            file: package://manipulation/camera_box.sdf
+
+        - add_weld:
+            parent: camera3_origin
+            child: camera3::base
 
         model_drivers:
             iiwa: !IiwaDriver
@@ -181,6 +196,11 @@ scenario_data = """
                 depth: True
                 X_PB:
                     base_frame: camera2::base
+            camera3:
+                name: camera3
+                depth: True
+                X_PB:
+                    base_frame: camera3::base
     """
 
 scenario = LoadScenario(data=scenario_data)
