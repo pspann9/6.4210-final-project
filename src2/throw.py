@@ -69,7 +69,7 @@ def V_spatial_from_q(plant, context, q, d_G_Ocom=0.11):
     return J_full[:, :7]
 
 
-def throw_objective(inp, plant, plant_context, p_WH, PRETHROW_ANGLES, THROWEND_ANGLES, g=9.81, d_G_Ocom=0.11, return_other=None):
+def throw_objective(inp, plant, plant_context, p_WB, PRETHROW_ANGLES, THROWEND_ANGLES, g=9.81, d_G_Ocom=0.11, return_other=None):
     throw_motion_time, release_frac = inp
 
     release_ja = PRETHROW_ANGLES + release_frac * (THROWEND_ANGLES - PRETHROW_ANGLES)
@@ -89,11 +89,11 @@ def throw_objective(inp, plant, plant_context, p_WH, PRETHROW_ANGLES, THROWEND_A
     v_release = J_release @ ((THROWEND_ANGLES - PRETHROW_ANGLES) / throw_motion_time)[:7]
 
     # ensure we're throwing in the general direction of the target
-    if v_release[:2] @ (p_WH - p_release)[:2] <= 0:
+    if v_release[:2] @ (p_WB - p_release)[:2] <= 0:
         return 1000
 
-    x = np.linalg.norm((p_WH - p_release)[:2])
-    y = (p_WH - p_release)[2]
+    x = np.linalg.norm((p_WB - p_release)[:2])
+    y = (p_WB - p_release)[2]
     vx = np.linalg.norm(v_release[:2])
     vy = v_release[2]
 

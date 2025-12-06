@@ -61,7 +61,7 @@ def design_grasp_pose(X_WO: RigidTransform) -> tuple[RigidTransform, RigidTransf
 
     p_WO = X_WO.translation()
     R_WO = X_WO.rotation()
-    p_WG = p_WO + np.array([0.0, -0.025, 0.05])
+    p_WG = p_WO + np.array([0.0, -0.005, 0.08])
     p_OG = R_WO.inverse() @ (p_WG - p_WO)
 
     X_OG = RigidTransform(R_OG, p_OG)

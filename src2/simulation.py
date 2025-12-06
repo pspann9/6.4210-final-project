@@ -50,6 +50,7 @@ from ik import PseudoInverseController
 from throw import pose_from_q, V_spatial_from_q, throw_objective, plan_throw_ik_trajectory
 from interpolation import interpolate_keyframe_poses
 from pid import PDController
+from perception_helpers import perceive_ball_and_bin
 
 # Start the visualizer.
 meshcat = StartMeshcat()
@@ -83,16 +84,6 @@ scenario_data = """
                 translation: [0, 0, 0.09]
                 rotation: !Rpy { deg: [90, 0, 90]}
 
-        - add_model:
-            name: hoop_model
-            file: file:///workspaces/6.4210-final-project/sdfs/basketball_hoop.sdf
-
-        - add_weld:
-            parent: world
-            child: hoop_model::base_link_hoop  
-            X_PC:
-                translation: [0, -5, 3.048]
-                rotation: !Rpy { deg: [0, 0, 90] }
 
         - add_model:
             name: ball
@@ -111,11 +102,85 @@ scenario_data = """
             X_PC:
                 translation: [1.45, 0.0, -0.05]
                 rotation: !Rpy { deg: [0, 0, -90] }
+                
+        - add_model:
+            name: bin
+            file: package://drake_models/manipulation_station/bin.sdf
+            
+        - add_weld:
+            parent: world
+            child: bin::bin_base
+            X_PC:
+                translation: [0, -2, 0]
+                rotation: !Rpy { deg: [0, 0, 0] }
+                
+                
+        - add_frame:
+            name: camera0_origin
+            X_PF:
+                base_frame: world
+                rotation: !Rpy { deg: [-140.0, 0.0, 180.0]}
+                translation: [0, 2, 2] # [0, 0.8, 0.5]
+
+        - add_model:
+            name: camera0
+            file: package://manipulation/camera_box.sdf
+
+        - add_weld:
+            parent: camera0_origin
+            child: camera0::base
+
+        - add_frame:
+            name: camera1_origin
+            X_PF:
+                base_frame: world
+                rotation: !Rpy { deg: [-140, 0.0, 90.0]}
+                translation: [2, 0.1, 2] # [0.8, 0.1, 0.5]
+
+        - add_model:
+            name: camera1
+            file: package://manipulation/camera_box.sdf
+
+        - add_weld:
+            parent: camera1_origin
+            child: camera1::base
+
+        - add_frame:
+            name: camera2_origin
+            X_PF:
+                base_frame: world
+                rotation: !Rpy { deg: [-140.0, 0.0, -90.0]}
+                translation: [-2, 0.1, 2] # [-0.8, 0.1, 0.5]
+
+        - add_model:
+            name: camera2
+            file: package://manipulation/camera_box.sdf
+
+        - add_weld:
+            parent: camera2_origin
+            child: camera2::base
 
         model_drivers:
             iiwa: !IiwaDriver
                 hand_model_name: wsg
             wsg: !SchunkWsgDriver {}
+            
+        cameras:
+            camera0:
+                name: camera0
+                depth: True
+                X_PB:
+                    base_frame: camera0::base
+            camera1:
+                name: camera1
+                depth: True
+                X_PB:
+                    base_frame: camera1::base
+            camera2:
+                name: camera2
+                depth: True
+                X_PB:
+                    base_frame: camera2::base
     """
 
 scenario = LoadScenario(data=scenario_data)
@@ -137,7 +202,7 @@ class TimeVaryingGains(LeafSystem):
         if t < t_switch:
             # pickup / move / early prethrow pause -> gentle
             kp = 300.0
-            kd = 50.0
+            kd = 100.0
         else:
             # late prethrow pause + throw -> aggressive
             kp = 3000.0
@@ -158,9 +223,10 @@ temp_context = station.CreateDefaultContext()
 temp_plant_context = plant.GetMyContextFromRoot(temp_context)
 X_WGinitial = plant.EvalBodyPoseInWorld(temp_plant_context, plant.GetBodyByName("body"))
 model_instance_ball = plant.GetModelInstanceByName("ball")
-X_WOball_initial = get_initial_pose(
-    plant, "body_link", model_instance_ball, temp_plant_context
-)
+# X_WOball_initial = get_initial_pose(
+#     plant, "body_link", model_instance_ball, temp_plant_context
+# )
+X_WOball_initial, X_WB_bin = perceive_ball_and_bin(scenario, meshcat)
 
 
 # Build trajectory keyframes
@@ -168,9 +234,9 @@ X_OG, X_WG_pick = design_grasp_pose(X_WOball_initial)
 X_WG_prepick = approach_pose(X_WG_pick)
 
 # === New: compute hoop pose (world → hoop) ===
-model_instance_hoop = plant.GetModelInstanceByName("hoop_model")
-hoop_body = plant.GetBodyByName("base_link_hoop", model_instance_hoop)
-X_WH = plant.EvalBodyPoseInWorld(temp_plant_context, hoop_body)
+# model_instance_hoop = plant.GetModelInstanceByName("hoop_model")
+# hoop_body = plant.GetBodyByName("base_link_hoop", model_instance_hoop)
+# X_WH = plant.EvalBodyPoseInWorld(temp_plant_context, hoop_body)
 
 
 # Ball-in-gripper transform from design_grasp_pose
@@ -178,10 +244,10 @@ X_GO = X_OG.inverse()
 
 X_WG_hold = X_WGinitial
 X_WO_hold = X_WG_hold @ X_GO
-p_WH = X_WH.translation()
+p_WB = X_WB_bin.translation()
 
 
-heading = np.arctan2(p_WH[1], p_WH[0])  # angle from base to hoop in world XY
+heading = np.arctan2(p_WB[1], p_WB[0])  # angle from base to hoop in world XY
 q0 = heading + np.pi
 
 PRETHROW_ANGLES = np.array([
@@ -202,6 +268,17 @@ THROWEND_ANGLES = np.array([
     -0.3,      # extend
     0.0,
 ])
+
+MIDTHROW_PRE_ANGLES = np.array([
+    q0,        # base heading
+    0.0,       # shoulder pan
+    0.0,       # shoulder lift
+    2.0,       # big bend
+    0.0,       # wrist 1
+    -0.2,      # big opposite bend
+    0.0,       # wrist 2
+])
+
 MIDTHROW_ANGLES = np.array([
     q0,        # base heading
     0.0,       # shoulder pan
@@ -292,14 +369,14 @@ X_WG_release  = pose_from_q(plant, THROWEND_ANGLES, temp_plant_context)
     
 R_WG = X_WG_hold.rotation()
 p_hold = X_WG_hold.translation()
-p_WH = X_WH.translation()
+p_WB = X_WB_bin.translation()
 
 res = scipy.optimize.differential_evolution(
     lambda inp: throw_objective(
         inp,
         plant=plant,
         plant_context=temp_plant_context,
-        p_WH=p_WH,
+        p_WB=p_WB,
         PRETHROW_ANGLES=PRETHROW_ANGLES,
         THROWEND_ANGLES=THROWEND_ANGLES,
     ),
@@ -332,8 +409,9 @@ q_initial = iiwa_from_full(q_seed_full)
 # IK for the pickup / hold poses:
 q_prepick, q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_prepick, q_seed_full)
 q_pick,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_pick,    q_seed_full)
-q_hold,    q_seed_full = q_from_pose(plant, temp_plant_context, X_WG_hold,    q_seed_full)
+q_hold = q_initial
 q_prethrow = PRETHROW_ANGLES
+q_midthrow_pre = MIDTHROW_PRE_ANGLES
 q_midthrow = MIDTHROW_ANGLES
 q_release  = THROWEND_ANGLES
 
@@ -342,9 +420,11 @@ times = [
     0.0,               # initial
     2.0,               # move above ball
     5.0,               # move down to grasp
+    6.0,               # move above ball
     8.0,               # lift / hold
     t_prethrow_arrive, # move to prethrow
     t_throw_start,     # pause at prethrow
+    (t_throw_start + (t_throw_start + t_throw_end) / 2) / 2,
     (t_throw_start + t_throw_end) / 2,     # pause at prethrow
     t_throw_end,       # finish throw (reach release)
 ]
@@ -353,9 +433,11 @@ q_knots = np.vstack([
     q_initial,   # 0.0
     q_prepick,   # 2.0
     q_pick,      # 5.0
+    q_prepick,      # 6.0
     q_hold,      # 8.0
     q_prethrow,  # t_prethrow_arrive
     q_prethrow,  # t_throw_start (hold)
+    q_midthrow_pre,
     q_midthrow,  # t_throw_start (hold)
     q_release,   # t_throw_end
 ]).T
