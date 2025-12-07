@@ -120,7 +120,7 @@ scenario_data = """
             parent: world
             child: bin_green::bin_base
             X_PC:
-                translation: [-.5, -2, 0]
+                translation: [-1, -2, 0]
                 rotation: !Rpy { deg: [0, 0, 0] }
 
         - add_model:
@@ -131,7 +131,7 @@ scenario_data = """
             parent: world
             child: bin_blue::bin_base
             X_PC:
-                translation: [.5, -2, 0]
+                translation: [1, -2, 0]
                 rotation: !Rpy { deg: [0, 0, 0] }
                 
                 
@@ -185,7 +185,7 @@ scenario_data = """
             X_PF:
                 base_frame: world
                 rotation: !Rpy { deg: [-140.0, 0.0, -180.0]}
-                translation: [0, -4, 2] # [-0.8, 0.1, 0.5]
+                translation: [1, -4, 2] # [-0.8, 0.1, 0.5]
 
         - add_model:
             name: camera3
@@ -194,6 +194,21 @@ scenario_data = """
         - add_weld:
             parent: camera3_origin
             child: camera3::base
+
+        - add_frame:
+            name: camera4_origin
+            X_PF:
+                base_frame: world
+                rotation: !Rpy { deg: [-140.0, 0.0, -180.0]}
+                translation: [-1, -4, 2] # [-0.8, 0.1, 0.5]
+
+        - add_model:
+            name: camera4
+            file: package://manipulation/camera_box.sdf
+
+        - add_weld:
+            parent: camera4_origin
+            child: camera4::base
 
         model_drivers:
             iiwa: !IiwaDriver
@@ -222,8 +237,15 @@ scenario_data = """
             camera3:
                 name: camera3
                 depth: True
+                rgb: True
                 X_PB:
                     base_frame: camera3::base
+            camera4:
+                name: camera4
+                depth: True
+                rgb: True
+                X_PB:
+                    base_frame: camera4::base
     """
 
 scenario = LoadScenario(data=scenario_data)
@@ -434,9 +456,9 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
     
 # Ignore the tiny optimized time; use a slower throw the PD can track
 # You can tune this, but 0.4–0.6 is a reasonable starting point.
-throw_duration = 0.2
-# tune_throw_param = -.05
-# throw_duration = throw_motion_time + tune_throw_param
+# throw_duration = 0.2
+tune_throw_param = -.05
+throw_duration = throw_motion_time + tune_throw_param
 # or, if you want to keep a lower bound:
 # throw_duration = max(0.4, float(throw_motion_time))
 
@@ -498,11 +520,11 @@ closed = 0.0
 
 # Decide when (as a fraction of the *slower* throw) you want to release.
 # 0.7–0.85 is usually “late in the swing”.
-release_frac_for_wsg = 1.2
-# release_frac_for_wsg = release_frac # 1.2  # try 0.8 first, then tweak
-# tune_param = 0.2
+# release_frac_for_wsg = 1.2
+release_frac_for_wsg = release_frac # 1.2  # try 0.8 first, then tweak
+tune_param = 0.2
 
-t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration #+ tune_param
+t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration + tune_param
 
 
 times_wsg = [
