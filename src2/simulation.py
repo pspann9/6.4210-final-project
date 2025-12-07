@@ -87,7 +87,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -104,14 +104,36 @@ scenario_data = """
                 rotation: !Rpy { deg: [0, 0, -90] }
                 
         - add_model:
-            name: bin
-            file: file:///workspaces/6.4210-final-project/sdfs/bin.sdf
+            name: bin_red
+            file: file:///workspaces/6.4210-final-project/sdfs/bin_red.sdf
             
         - add_weld:
             parent: world
-            child: bin::bin_base
+            child: bin_red::bin_base
             X_PC:
                 translation: [0, -2, 0]
+                rotation: !Rpy { deg: [0, 0, 0] }
+
+        - add_model:
+            name: bin_green
+            file: file:///workspaces/6.4210-final-project/sdfs/bin_green.sdf
+            
+        - add_weld:
+            parent: world
+            child: bin_green::bin_base
+            X_PC:
+                translation: [-.5, -2, 0]
+                rotation: !Rpy { deg: [0, 0, 0] }
+
+        - add_model:
+            name: bin_blue
+            file: file:///workspaces/6.4210-final-project/sdfs/bin_blue.sdf
+            
+        - add_weld:
+            parent: world
+            child: bin_blue::bin_base
+            X_PC:
+                translation: [.5, -2, 0]
                 rotation: !Rpy { deg: [0, 0, 0] }
                 
                 
@@ -248,6 +270,7 @@ model_instance_ball = plant.GetModelInstanceByName("ball")
 # )
 X_WOball_initial, X_WB_bin = perceive_ball_and_bin(scenario, meshcat)
 
+# print("COLOR", ball_color, bin_color)
 
 # Build trajectory keyframes
 X_OG, X_WG_pick = design_grasp_pose(X_WOball_initial)
@@ -410,6 +433,8 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
 # Ignore the tiny optimized time; use a slower throw the PD can track
 # You can tune this, but 0.4–0.6 is a reasonable starting point.
 throw_duration = 0.2
+# tune_throw_param = -.05
+# throw_duration = throw_motion_time + tune_throw_param
 # or, if you want to keep a lower bound:
 # throw_duration = max(0.4, float(throw_motion_time))
 
@@ -471,9 +496,11 @@ closed = 0.0
 
 # Decide when (as a fraction of the *slower* throw) you want to release.
 # 0.7–0.85 is usually “late in the swing”.
-release_frac_for_wsg = 1.2  # try 0.8 first, then tweak
+release_frac_for_wsg = 1.2
+# release_frac_for_wsg = release_frac # 1.2  # try 0.8 first, then tweak
+# tune_param = 0.2
 
-t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration
+t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration #+ tune_param
 
 
 times_wsg = [

@@ -1,0 +1,12 @@
+#
+# Wavefront material file
+# Converted by Meshlab Group
+#
+
+newmtl material_0
+Ka 0.0 1.0 0.0   # Ambient
+Kd 0.0 1.0 0.0   # Diffuse
+Ks 0.5 0.5 0.5   # Moderate specular for highlight
+Ns 50.0          # Higher shininess = brighter specular
+illum 2
+Ns 0.000000

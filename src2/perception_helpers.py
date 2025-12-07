@@ -43,23 +43,80 @@ from manipulation.station import (
 from manipulation.utils import RenderDiagram
 
 
+def copy_filtered(point_cloud: PointCloud, idx: np.ndarray) -> PointCloud:
+    """Return a new PointCloud containing only indices in idx,
+    preserving XYZ and any present per-point fields (RGBs, normals)."""
+    out = PointCloud(idx.size, fields=point_cloud.fields())
+
+    # XYZs always exist
+    out.mutable_xyzs()[:] = point_cloud.xyzs()[:, idx]
+
+    # Copy RGBs only if the source has them
+    if point_cloud.has_rgbs():
+        out.mutable_rgbs()[:] = point_cloud.rgbs()[:, idx]
+
+    # Copy normals if present
+    if point_cloud.has_normals():
+        out.mutable_normals()[:] = point_cloud.normals()[:, idx]
+
+    # Add any other field checks here if you need them (e.g., intensities).
+    return out
+
+
 def remove_table_points(point_cloud: PointCloud) -> PointCloud:
     xyz = point_cloud.xyzs()                 # 3 x N
     mask = np.isfinite(xyz).all(axis=0) & (xyz[2, :] >= 0.01)
     idx = np.nonzero(mask)[0]
 
-    out = PointCloud(idx.size)      # new cloud with only XYZ
-    out.mutable_xyzs()[:] = xyz[:, idx]
-    return out
+    # quick path: no filtering required
+    if idx.size == point_cloud.size():
+        return point_cloud
 
-def remove_non_back_points(point_cloud: PointCloud) -> PointCloud:
-    xyz = point_cloud.xyzs()                 # 3 x N
-    mask = np.isfinite(xyz).all(axis=0) & (xyz[1, :] <= -0.5)
-    idx = np.nonzero(mask)[0]
+    return copy_filtered(point_cloud, idx)
 
-    out = PointCloud(idx.size)      # new cloud with only XYZ
-    out.mutable_xyzs()[:] = xyz[:, idx]
-    return out
+def rgb_at_pose(point_cloud, X_Ohat: RigidTransform, query_point: np.ndarray = None, radius: float = None):
+    """
+    Get the RGB color from a point cloud at a given world pose.
+
+    Args:
+        point_cloud: Drake PointCloud with xyzs() and rgbs().
+        X_Ohat: RigidTransform representing the pose of the object in world frame.
+        query_point: Optional 3-element array specifying a query position in world frame.
+                     If None, defaults to X_Ohat.translation() (object center).
+        radius: Optional radius for averaging points around query_point. If None, uses closest point.
+
+    Returns:
+        color: 3-element np.ndarray with RGB values in [0,1].
+    """
+    # Transform points to world frame
+    xyzs = point_cloud.xyzs()  # 3 x N
+    rgbs = point_cloud.rgbs()  # 3 x N
+
+    R = X_Ohat.rotation().matrix()
+    t = X_Ohat.translation()
+    xyzs_W = R @ xyzs + t[:, np.newaxis]
+
+    # Default query point is object center
+    if query_point is None:
+        query_point = t
+
+    if radius is None:
+        # Return RGB of closest point
+        dists = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0)
+        idx = np.argmin(dists)
+        color = rgbs[:, idx]
+    else:
+        # Average RGB over all points within radius
+        mask = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0) < radius
+        if np.sum(mask) == 0:
+            # fallback: closest point
+            dists = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0)
+            idx = np.argmin(dists)
+            color = rgbs[:, idx]
+        else:
+            color = np.mean(rgbs[:, mask], axis=1)
+
+    return color
 
 def perceive_ball_and_bin(scenario, meshcat):
     """
@@ -174,7 +231,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     )
 
     ################## Bin pose ###################
-    model_bin1 = plant.GetModelInstanceByName("bin")
+    model_bin1 = plant.GetModelInstanceByName("bin_red")
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
@@ -223,9 +280,135 @@ def perceive_ball_and_bin(scenario, meshcat):
         max_iterations=MAX_ITERATIONS,
     )
     
-    X_WB_bin = bin1_X_Ohat
+    X_WB_bin_red = bin1_X_Ohat
+
+    ################## Bin pose ###################
+    model_bin1 = plant.GetModelInstanceByName("bin_green")
+    frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
+    X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
+    
+    pad = np.array([1, 1, 1])
+    center_W = X_PC_bin1.translation()
+    bin1_lower = center_W - pad
+    bin1_upper = center_W + pad
+
+    camera0_bin1_pc = diagram.GetOutputPort("camera0_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+
+
+    ####################
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
+    merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
+    merged_bin1_pc = remove_table_points(merged_bin1_pc)
+    # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
+    
+    meshcat.SetObject(
+        "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
+    )
+
+    # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
+    # meshcat.SetObject("p", p, point_size=0.01, rgba=Rgba(0,1,0))
+
+    sdf_path_bin = Path("sdfs/bin.sdf")
+    obj_path_bin = (sdf_path_bin.parent / "bin.obj")
+    bin1_mesh = trimesh.load(obj_path_bin.as_posix(), force='mesh')
+
+    # bin1_mesh = trimesh.load("sdfs/construction_cone.obj", force='mesh')
+    bin1_points = bin1_mesh.sample(N_SAMPLE_POINTS).T
+    bin1_cloud = PointCloud(bin1_points.shape[1])
+    bin1_cloud.mutable_xyzs()[:] = bin1_points
+
+    # Run ICP
+    initial_guess_bin1 = RigidTransform(
+        RotationMatrix.MakeXRotation(90.0),  
+        [ 0.0, 1.0, 0.0 ]      
+    )  # rough initial position
+    bin1_X_Ohat, error_bin1 = IterativeClosestPoint(
+        p_Om=bin1_points,
+        p_Ws=merged_bin1_pc.xyzs(),
+        X_Ohat=initial_guess_bin1,
+        max_iterations=MAX_ITERATIONS,
+    )
+    
+    X_WB_bin_green = bin1_X_Ohat
+
+
+    ################## Bin pose ###################
+    model_bin1 = plant.GetModelInstanceByName("bin_blue")
+    frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
+    X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
+    
+    pad = np.array([1, 1, 1])
+    center_W = X_PC_bin1.translation()
+    bin1_lower = center_W - pad
+    bin1_upper = center_W + pad
+
+    camera0_bin1_pc = diagram.GetOutputPort("camera0_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+
+
+    ####################
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
+    merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
+    merged_bin1_pc = remove_table_points(merged_bin1_pc)
+    # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
+    
+    meshcat.SetObject(
+        "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
+    )
+
+    # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
+    # meshcat.SetObject("p", p, point_size=0.01, rgba=Rgba(0,1,0))
+
+    sdf_path_bin = Path("sdfs/bin.sdf")
+    obj_path_bin = (sdf_path_bin.parent / "bin.obj")
+    bin1_mesh = trimesh.load(obj_path_bin.as_posix(), force='mesh')
+
+    # bin1_mesh = trimesh.load("sdfs/construction_cone.obj", force='mesh')
+    bin1_points = bin1_mesh.sample(N_SAMPLE_POINTS).T
+    bin1_cloud = PointCloud(bin1_points.shape[1])
+    bin1_cloud.mutable_xyzs()[:] = bin1_points
+
+    # Run ICP
+    initial_guess_bin1 = RigidTransform(
+        RotationMatrix.MakeXRotation(90.0),  
+        [ 0.0, 1.0, 0.0 ]      
+    )  # rough initial position
+    bin1_X_Ohat, error_bin1 = IterativeClosestPoint(
+        p_Om=bin1_points,
+        p_Ws=merged_bin1_pc.xyzs(),
+        X_Ohat=initial_guess_bin1,
+        max_iterations=MAX_ITERATIONS,
+    )
+    
+    X_WB_bin_blue = bin1_X_Ohat
+
+
+    ball_color_vec = rgb_at_pose(ball_point_cloud, X_WB_ball, radius=0.05)
+    # bin_color_vec = rgb_at_pose(merged_bin1_pc, X_WB_bin, radius=0.05)
+
+    if ball_color_vec[0] > ball_color_vec[1] and ball_color_vec[0] > ball_color_vec[2]:
+        ball_color = 'red'
+        X_WB_bin = X_WB_bin_red
+    elif ball_color_vec[1] > ball_color_vec[0] and ball_color_vec[1] > ball_color_vec[2]:
+        ball_color = 'green'
+        X_WB_bin = X_WB_bin_green
+    else:
+        ball_color = 'blue'
+        X_WB_bin = X_WB_bin_blue
 
     print("WHAT IS YOUR POSITION??", X_WB_bin)
 
+    # if bin_color_vec[0] > bin_color_vec[1] and bin_color_vec[0] > bin_color_vec[2]:
+    #     bin_color = 'red'
+    # elif bin_color_vec[1] > bin_color_vec[0] and bin_color_vec[1] > bin_color_vec[2]:
+    #     bin_color = 'green'
+    # else:
+    #     bin_color = 'blue'
 
-    return X_WB_ball, X_WB_bin
+
+    return X_WB_ball, X_WB_bin#, ball_color, bin_color

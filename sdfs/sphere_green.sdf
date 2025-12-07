@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<sdf version="1.7" xmlns:drake="drake.mit.edu">
+  <model name="sphere_ball">
+    <link name="body_link">
+      <!-- Inertial properties -->
+      <inertial>
+        <!-- Pose of the inertial frame relative to the link frame -->
+        <pose>0 0 0.025 0 0 0</pose>
+        <mass>0.028</mass>
+        <inertia>
+          <ixx>1.17e-5</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1.9e-5</iyy>
+          <iyz>0</iyz>
+          <izz>1.9e-5</izz>
+        </inertia>
+      </inertial>
+
+      <!-- Visual geometry (what you see in Meshcat) -->
+      <visual name="sphere_visual">
+        <pose>0 0 0.025 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <!-- 4 cm radius -->
+            <radius>0.04</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>0.0 1.0 0.0 1.0</ambient>
+          <diffuse>0.0 1.0 0.0 1.0</diffuse>
+          <specular>0.1 0.1 0.1 1.0</specular>
+        </material>
+      </visual>
+
+      <!-- Collision geometry (what actually collides with the table) -->
+      <collision name="sphere_collision">
+        <pose>0 0 0.025 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.04</radius>
+          </sphere>
+        </geometry>
+
+        <!-- Drake-specific contact properties -->
+        <drake:proximity_properties>
+          <drake_hydroelastic_modulus>1e7</drake_hydroelastic_modulus>
+          <drake_hunt_crossley_dissipation>1.0</drake_hunt_crossley_dissipation>
+          <drake_relaxation_time>0.0</drake_relaxation_time>
+          <mu_dynamic>2</mu_dynamic>
+          <mu_static>2</mu_static>
+        </drake:proximity_properties>
+      </collision>
+    </link>
+  </model>
+</sdf>
