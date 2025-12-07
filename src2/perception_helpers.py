@@ -236,6 +236,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_ball_point_cloud = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
     camera2_ball_point_cloud = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
     camera3_ball_point_cloud = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
+    camera4_ball_point_cloud = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
     
     
     if ball_lower is not None and ball_upper is not None:
@@ -246,7 +247,7 @@ def perceive_ball_and_bin(scenario, meshcat):
             1.0,
             Rgba(0, 0, 0),
         )
-    merged_point_cloud = Concatenate([camera0_ball_point_cloud, camera1_ball_point_cloud, camera2_ball_point_cloud, camera3_ball_point_cloud])
+    merged_point_cloud = Concatenate([camera0_ball_point_cloud, camera1_ball_point_cloud, camera2_ball_point_cloud, camera3_ball_point_cloud, camera4_ball_point_cloud])
     downsampled_point_cloud = merged_point_cloud.VoxelizedDownSample(0.005)
     
     ball_point_cloud = remove_table_points(merged_point_cloud)
@@ -309,10 +310,11 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera4_bin1_pc = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
 
 
     ####################
-    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc, camera4_bin1_pc])
     merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
@@ -361,10 +363,11 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera4_bin1_pc = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
 
 
     ####################
-    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc, camera4_bin1_pc])
     merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
@@ -414,10 +417,11 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
+    camera4_bin1_pc = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
 
 
     ####################
-    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc, camera4_bin1_pc])
     merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
