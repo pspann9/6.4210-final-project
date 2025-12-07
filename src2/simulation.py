@@ -45,10 +45,8 @@ from manipulation.utils import RenderDiagram
 import scipy.optimize
 
 
-from helpers import get_initial_pose, design_grasp_pose, approach_pose, make_trajectory
-from ik import PseudoInverseController
-from throw import pose_from_q, V_spatial_from_q, throw_objective, plan_throw_ik_trajectory
-from interpolation import interpolate_keyframe_poses
+from helpers import design_grasp_pose, approach_pose
+from throw import pose_from_q, throw_objective
 from pid import PDController
 from perception_helpers import perceive_ball_and_bin
 
@@ -206,16 +204,19 @@ scenario_data = """
             camera0:
                 name: camera0
                 depth: True
+                rgb: True
                 X_PB:
                     base_frame: camera0::base
             camera1:
                 name: camera1
                 depth: True
+                rgb: True
                 X_PB:
                     base_frame: camera1::base
             camera2:
                 name: camera2
                 depth: True
+                rgb: True
                 X_PB:
                     base_frame: camera2::base
             camera3:

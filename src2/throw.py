@@ -68,7 +68,6 @@ def V_spatial_from_q(plant, context, q, d_G_Ocom=0.11):
     )
     return J_full[:, :7]
 
-
 def throw_objective(inp, plant, plant_context, p_WB, PRETHROW_ANGLES, THROWEND_ANGLES, g=9.81, d_G_Ocom=0.11, return_other=None):
     throw_motion_time, release_frac = inp
 
@@ -111,73 +110,4 @@ def throw_objective(inp, plant, plant_context, p_WB, PRETHROW_ANGLES, THROWEND_A
 
 
     return objective
-
-def plan_throw_ik_trajectory(plant, pose_list, t_list):
-    iiwa = plant.GetModelInstanceByName("iiwa")
-    wsg  = plant.GetModelInstanceByName("wsg")
-    G    = plant.GetBodyByName("body", wsg).body_frame()
-    W    = plant.world_frame()
-
-    # One shared context we keep updating
-    context = plant.CreateDefaultContext()
-
-    # Start from the plant's default iiwa positions
-    q_prev_iiwa = plant.GetPositions(context, iiwa).copy()
-
-    q_knots = []
-    pos_tol   = 0.005
-    theta_tol = 5.0 * np.pi / 180.0
-
-    for X_WG in pose_list:
-        p_des = X_WG.translation()
-        R_des = X_WG.rotation()
-
-        # Warm-start the context's iiwa positions from previous solution
-        plant.SetPositions(context, iiwa, q_prev_iiwa)
-
-        ik = InverseKinematics(plant, context)
-        q_dec = ik.q()
-
-        # Position constraint on gripper
-        ik.AddPositionConstraint(
-            frameB=G,
-            p_BQ=np.zeros(3),
-            frameA=W,
-            p_AQ_lower=p_des - pos_tol,
-            p_AQ_upper=p_des + pos_tol,
-        )
-
-        # Orientation constraint on gripper
-        ik.AddOrientationConstraint(
-            frameAbar=W,
-            R_AbarA=R_des,
-            frameBbar=G,
-            R_BbarB=RotationMatrix(),
-            theta_bound=theta_tol,
-        )
-
-        prog = ik.prog()
-
-        # IMPORTANT: initial guess must have the same size as q_dec
-        q_full_init = plant.GetPositions(context)   # all positions, correct length
-        prog.SetInitialGuess(q_dec, q_full_init)
-
-        result = Solve(prog)
-
-        if not result.is_success():
-            print("Warning: throw IK failed at a sample; reusing previous iiwa q.")
-            q_sol_iiwa = q_prev_iiwa
-        else:
-            # Get full solution, then extract iiwa joints from it
-            q_sol_full = result.GetSolution(q_dec)
-            plant.SetPositions(context, q_sol_full)
-            q_sol_iiwa = plant.GetPositions(context, iiwa)
-
-        q_knots.append(q_sol_iiwa)
-        q_prev_iiwa = q_sol_iiwa
-
-    q_knots = np.asarray(q_knots)  # (N, 7)
-    return np.asarray(t_list), q_knots
-
-    
     

@@ -118,6 +118,67 @@ def rgb_at_pose(point_cloud, X_Ohat: RigidTransform, query_point: np.ndarray = N
 
     return color
 
+def copy_filtered(point_cloud: PointCloud, idx: np.ndarray) -> PointCloud:
+    """Return a new PointCloud containing only indices in idx,
+    preserving XYZ and any present per-point fields (RGBs, normals)."""
+    out = PointCloud(idx.size, fields=point_cloud.fields())
+
+    # XYZs always exist
+    out.mutable_xyzs()[:] = point_cloud.xyzs()[:, idx]
+
+    # Copy RGBs only if the source has them
+    if point_cloud.has_rgbs():
+        out.mutable_rgbs()[:] = point_cloud.rgbs()[:, idx]
+
+    # Copy normals if present
+    if point_cloud.has_normals():
+        out.mutable_normals()[:] = point_cloud.normals()[:, idx]
+
+    # Add any other field checks here if you need them (e.g., intensities).
+    return out
+
+def remove_table_points(point_cloud: PointCloud) -> PointCloud:
+    xyz = point_cloud.xyzs()                 # 3 x N
+    mask = np.isfinite(xyz).all(axis=0) & (xyz[2, :] >= 0.01)
+    idx = np.nonzero(mask)[0]
+
+    # quick path: no filtering required
+    if idx.size == point_cloud.size():
+        return point_cloud
+
+    return copy_filtered(point_cloud, idx)
+
+def rgb_at_pose(point_cloud, X_Ohat: RigidTransform, query_point: np.ndarray = None, radius: float = None):
+    # Transform points to world frame
+    xyzs = point_cloud.xyzs()  # 3 x N
+    rgbs = point_cloud.rgbs()  # 3 x N
+
+    R = X_Ohat.rotation().matrix()
+    t = X_Ohat.translation()
+    xyzs_W = R @ xyzs + t[:, np.newaxis]
+
+    # Default query point is object center
+    if query_point is None:
+        query_point = t
+
+    if radius is None:
+        # Return RGB of closest point
+        dists = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0)
+        idx = np.argmin(dists)
+        color = rgbs[:, idx]
+    else:
+        # Average RGB over all points within radius
+        mask = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0) < radius
+        if np.sum(mask) == 0:
+            # fallback: closest point
+            dists = np.linalg.norm(xyzs_W - query_point[:, np.newaxis], axis=0)
+            idx = np.argmin(dists)
+            color = rgbs[:, idx]
+        else:
+            color = np.mean(rgbs[:, mask], axis=1)
+
+    return color
+
 def perceive_ball_and_bin(scenario, meshcat):
     """
     Returns:
@@ -213,6 +274,10 @@ def perceive_ball_and_bin(scenario, meshcat):
         X_Ohat=initial_guess,     
         max_iterations=MAX_ITERATIONS
     )
+    
+    ball_color = rgb_at_pose(ball_point_cloud, ball_X_Ohat)
+    ball_color_avg = rgb_at_pose(ball_point_cloud, ball_X_Ohat, radius=0.05)
+    print("Average ball color (RGB):", ball_color_avg)
     
     np.set_printoptions(precision=3, suppress=True)
     error_ball = ball_X_Ohat.inverse().multiply(X_PC_ball)
