@@ -266,6 +266,7 @@ temp_context = station.CreateDefaultContext()
 temp_plant_context = plant.GetMyContextFromRoot(temp_context)
 X_WGinitial = plant.EvalBodyPoseInWorld(temp_plant_context, plant.GetBodyByName("body"))
 model_instance_ball = plant.GetModelInstanceByName("ball")
+ball_body_eval = plant.GetBodyByName("body_link", model_instance_ball)
 # X_WOball_initial = get_initial_pose(
 #     plant, "body_link", model_instance_ball, temp_plant_context
 # )
@@ -587,6 +588,30 @@ AddFrameTriadIllustration(
 
 diagram = builder.Build()
 
+# Bin interior dimensions, derived from SDF (in bin_base frame)
+BIN_INNER_HALF_X = 0.195  # meters
+BIN_INNER_HALF_Y = 0.265  # meters
+BIN_HEIGHT       = 0.21   # meters (rim height)
+
+
+def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
+    """
+    Returns True if world-frame ball position p_WO is inside the
+    interior of the bin defined by X_WB_bin, using dimensions from the SDF.
+    """
+    # Transform ball position into bin_base frame
+    X_BW = X_WB_bin.inverse()
+    p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
+
+    x, y, z = p_BO
+
+    in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
+    in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
+    in_z = (0.0 <= z <= BIN_HEIGHT)
+
+    return in_x and in_y and in_z
+
+
 T_final = 13.0
 
 # Define the simulator.
@@ -595,13 +620,49 @@ context = simulator.get_mutable_context()
 station_context = station.GetMyContextFromRoot(context)
 diagram.ForcedPublish(context)
 
+dt = 0.01  # how often to check ball pose
 
-# run simulation!
+plant_context = plant.GetMyContextFromRoot(context)
+
+landed_pos = None
+landed_time = None
+
 meshcat.StartRecording()
 if running_as_notebook:
     simulator.set_target_realtime_rate(1.0)
-simulator.AdvanceTo(T_final)
+
+while simulator.get_context().get_time() < T_final:
+    t_now = simulator.get_context().get_time()
+    simulator.AdvanceTo(t_now + dt)
+
+    context = simulator.get_context()
+    plant_context = plant.GetMyContextFromRoot(context)
+
+    X_WO = plant.EvalBodyPoseInWorld(plant_context, ball_body_eval)
+    p_WO = X_WO.translation()
+
+    if ball_in_bin(p_WO, X_WB_bin) and landed_pos is None:
+        landed_pos = p_WO.copy()
+        landed_time = simulator.get_context().get_time()
+        print("Ball entered bin interior at time", landed_time, "at position", landed_pos)
+        # Optional: break if you want to stop here
+        # break
 
 meshcat.StopRecording()
 meshcat.PublishRecording()
+
+if landed_pos is None:
+    print("Ball never entered the bin interior.")
+else:
+    print("Recorded landing position:", landed_pos)
+
+
+# run simulation!
+# meshcat.StartRecording()
+# if running_as_notebook:
+#     simulator.set_target_realtime_rate(1.0)
+# simulator.AdvanceTo(T_final)
+
+# meshcat.StopRecording()
+# meshcat.PublishRecording()
 
