@@ -88,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_green.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -112,7 +112,7 @@ scenario_data = """
             parent: world
             child: bin_red::bin_base
             X_PC:
-                translation: [0.562395, -1.3905795, 0]
+                translation: [0.37493, -0.927053, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
@@ -123,7 +123,7 @@ scenario_data = """
             parent: world
             child: bin_green::bin_base
             X_PC:
-                translation: [0.09886848215, -1.5780446094, 0]
+                translation: [-0.08859651785, -1.1145181094, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
@@ -134,7 +134,7 @@ scenario_data = """
             parent: world
             child: bin_blue::bin_base
             X_PC:
-                translation: [1.02592151785, -1.2031143906, 0]
+                translation: [0.83845651785, -0.7395878906, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
                 
                 

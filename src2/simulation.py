@@ -624,6 +624,7 @@ def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
     Returns True if world-frame ball position p_WO is inside the
     interior of the bin defined by X_WB_bin, using dimensions from the SDF.
     """
+    p_WO = p_WO - np.array([0, 0, 0.04]) # find base of object...
     # Transform ball position into bin_base frame
     X_BW = X_WB_bin.inverse()
     p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
@@ -632,7 +633,7 @@ def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
 
     in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
     in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
-    in_z = (0.0 <= z <= BIN_HEIGHT)
+    in_z = (0.0 <= z <= .02)
 
     return in_x and in_y and in_z
 
