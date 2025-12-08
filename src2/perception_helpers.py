@@ -320,7 +320,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
     
     # meshcat.SetObject(
-    #     "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
+    #     "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(1, 1, 1)
     # )
 
     # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
