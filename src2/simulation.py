@@ -441,6 +441,10 @@ R_WG = X_WG_hold.rotation()
 p_hold = X_WG_hold.translation()
 p_WB = X_WB_bin.translation()
 
+###############################################
+p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height
+###############################################
+
 res = scipy.optimize.differential_evolution(
     lambda inp: throw_objective(
         inp,
@@ -613,32 +617,32 @@ AddFrameTriadIllustration(
 
 diagram = builder.Build()
 
-# Bin interior dimensions, derived from SDF (in bin_base frame)
-BIN_INNER_HALF_X = 0.195  # meters
-BIN_INNER_HALF_Y = 0.265  # meters
-BIN_HEIGHT       = 0.21   # meters (rim height)
+
+BIN_HEIGHT       = 0.105  # meters (rim height)
 
 
-def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
+def ball_across_y(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
     """
     Returns True if world-frame ball position p_WO is inside the
     interior of the bin defined by X_WB_bin, using dimensions from the SDF.
     """
-    p_WO = p_WO - np.array([0, 0, 0.04]) # find base of object...
+    p_WO = p_WO
     # Transform ball position into bin_base frame
-    X_BW = X_WB_bin.inverse()
-    p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
+    # X_BW = X_WB_bin.inverse()
+    # p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
 
-    x, y, z = p_BO
+    # x, y, z = p_BO
 
-    in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
-    in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
-    in_z = (0.0 <= z <= .02)
+    x, y, z = p_WO
 
-    return in_x and in_y and in_z
+    fine_y = y <= -.6
+
+    in_z = (BIN_HEIGHT - .0025 <= z <= BIN_HEIGHT + .0025)
+
+    return fine_y and in_z
 
 
-T_final = 13.0
+T_final = 15.0
 
 # Define the simulator.
 simulator = Simulator(diagram)
@@ -646,7 +650,7 @@ context = simulator.get_mutable_context()
 station_context = station.GetMyContextFromRoot(context)
 diagram.ForcedPublish(context)
 
-dt = 0.01  # how often to check ball pose
+dt = 0.001  # how often to check ball pose
 
 plant_context = plant.GetMyContextFromRoot(context)
 
@@ -667,7 +671,7 @@ while simulator.get_context().get_time() < T_final:
     X_WO = plant.EvalBodyPoseInWorld(plant_context, ball_body_eval)
     p_WO = X_WO.translation()
 
-    if ball_in_bin(p_WO, X_WB_bin) and landed_pos is None:
+    if ball_across_y(p_WO, X_WB_bin) and landed_pos is None:
         landed_pos = p_WO.copy()
         landed_time = simulator.get_context().get_time()
         print("Ball entered bin interior at time", landed_time, "at position", landed_pos)
