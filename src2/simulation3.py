@@ -88,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_green.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -112,7 +112,7 @@ scenario_data = """
             parent: world
             child: bin_red::bin_base
             X_PC:
-                translation: [0.74986, -1.854106, 0]
+                translation: [0.37493, -0.927053, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
@@ -123,7 +123,7 @@ scenario_data = """
             parent: world
             child: bin_green::bin_base
             X_PC:
-                translation: [0.19362817858, -2.07906413128, 0]
+                translation: [-0.08859651785, -1.1145181094, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
@@ -134,7 +134,7 @@ scenario_data = """
             parent: world
             child: bin_blue::bin_base
             X_PC:
-                translation: [1.30609182142, -1.62914786872, 0]
+                translation: [0.83845651785, -0.7395878906, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
                 
                 
@@ -187,8 +187,10 @@ scenario_data = """
             name: camera3_origin
             X_PF:
                 base_frame: world
-                rotation: !Rpy { deg: [-140.0, 0.0, -167.98]}
-                translation: [1.5, -4, 2] # [-0.8, 0.1, 0.5]
+                # rotation: !Rpy { deg: [-140.0, 0.0, -167.98]}
+                # translation: [1.5, -4, 2] # [-0.8, 0.1, 0.5]
+                rotation: !Rpy { deg: [0.0, 0.0, 0.0]}
+                translation: [0, -3, 0] # [-0.8, 0.1, 0.5]
 
         - add_model:
             name: camera3
@@ -203,7 +205,7 @@ scenario_data = """
             X_PF:
                 base_frame: world
                 rotation: !Rpy { deg: [-90.0, 0.0, 0.0]}
-                translation: [.5, -1.854106, 3] # [-0.8, 0.1, 0.5]
+                translation: [0.562395, -1.3905795, 3] # [-0.8, 0.1, 0.5]
 
         - add_model:
             name: camera4
@@ -614,9 +616,9 @@ AddFrameTriadIllustration(
 diagram = builder.Build()
 
 # Bin interior dimensions, derived from SDF (in bin_base frame)
-BIN_INNER_HALF_X = 0.0975  # previously 0.195
-BIN_INNER_HALF_Y = 0.1325  # previously 0.265
-BIN_HEIGHT       = 0.025   # previously 0.21
+BIN_INNER_HALF_X = 0.195  # meters
+BIN_INNER_HALF_Y = 0.265  # meters
+BIN_HEIGHT       = 0.21   # meters (rim height)
 
 
 def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
@@ -624,7 +626,6 @@ def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
     Returns True if world-frame ball position p_WO is inside the
     interior of the bin defined by X_WB_bin, using dimensions from the SDF.
     """
-    p_WO = p_WO - np.array([0, 0, 0.04]) # find base of object...
     # Transform ball position into bin_base frame
     X_BW = X_WB_bin.inverse()
     p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
@@ -633,7 +634,7 @@ def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
 
     in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
     in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
-    in_z = (0.0 <= z <= .02)
+    in_z = (0.0 <= z <= BIN_HEIGHT)
 
     return in_x and in_y and in_z
 
