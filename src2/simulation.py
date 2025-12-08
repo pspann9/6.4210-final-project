@@ -202,7 +202,7 @@ scenario_data = """
             name: camera4_origin
             X_PF:
                 base_frame: world
-                rotation: !Rpy { deg: [0.0, 0.0, -167.98]}
+                rotation: !Rpy { deg: [-90.0, 0.0, 0.0]}
                 translation: [.5, -1.854106, 3] # [-0.8, 0.1, 0.5]
 
         - add_model:

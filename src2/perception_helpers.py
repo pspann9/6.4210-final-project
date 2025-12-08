@@ -301,7 +301,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
-    pad = np.array([.5, .75, .75])
+    pad = np.array([.3, .4, .4])
     center_W = X_PC_bin1.translation()
     bin1_lower = center_W - pad
     bin1_upper = center_W + pad
@@ -354,7 +354,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
-    pad = np.array([.5, .75, .75])
+    pad = np.array([.3, .4, .4])
     center_W = X_PC_bin1.translation()
     bin1_lower = center_W - pad
     bin1_upper = center_W + pad
@@ -408,7 +408,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
-    pad = np.array([.5, .75, .75])
+    pad = np.array([.3, .4, .4])
     center_W = X_PC_bin1.translation()
     bin1_lower = center_W - pad
     bin1_upper = center_W + pad
