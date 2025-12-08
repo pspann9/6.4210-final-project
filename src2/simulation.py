@@ -88,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_red.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -187,8 +187,8 @@ scenario_data = """
             name: camera3_origin
             X_PF:
                 base_frame: world
-                rotation: !Rpy { deg: [-140.0, 0.0, -180.0]}
-                translation: [1, -4, 2] # [-0.8, 0.1, 0.5]
+                rotation: !Rpy { deg: [-140.0, 0.0, -167.98]}
+                translation: [1.5, -4, 2] # [-0.8, 0.1, 0.5]
 
         - add_model:
             name: camera3
@@ -202,8 +202,8 @@ scenario_data = """
             name: camera4_origin
             X_PF:
                 base_frame: world
-                rotation: !Rpy { deg: [-140.0, 0.0, -180.0]}
-                translation: [-1, -4, 2] # [-0.8, 0.1, 0.5]
+                rotation: !Rpy { deg: [0.0, 0.0, -167.98]}
+                translation: [.5, -1.854106, 3] # [-0.8, 0.1, 0.5]
 
         - add_model:
             name: camera4
