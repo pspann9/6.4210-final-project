@@ -253,9 +253,9 @@ def perceive_ball_and_bin(scenario, meshcat):
     ball_point_cloud = remove_table_points(merged_point_cloud)
     ball_point_cloud = ball_point_cloud.VoxelizedDownSample(0.005)
     
-    meshcat.SetObject(
-        "ball_point_cloud", ball_point_cloud, point_size=0.05, rgba=Rgba(1, 0, 0)
-    )
+    # meshcat.SetObject(
+    #     "ball_point_cloud", ball_point_cloud, point_size=0.05, rgba=Rgba(1, 0, 0)
+    # )
     
     MAX_ITERATIONS = 25 
     
@@ -301,7 +301,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
-    pad = np.array([1, 1, 1])
+    pad = np.array([.5, .75, .75])
     center_W = X_PC_bin1.translation()
     bin1_lower = center_W - pad
     bin1_upper = center_W + pad
@@ -319,9 +319,9 @@ def perceive_ball_and_bin(scenario, meshcat):
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
     
-    meshcat.SetObject(
-        "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
-    )
+    # meshcat.SetObject(
+    #     "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
+    # )
 
     # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
     # meshcat.SetObject("p", p, point_size=0.01, rgba=Rgba(0,1,0))
@@ -354,7 +354,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
-    pad = np.array([1, 1, 1])
+    pad = np.array([.5, .75, .75])
     center_W = X_PC_bin1.translation()
     bin1_lower = center_W - pad
     bin1_upper = center_W + pad
@@ -372,9 +372,9 @@ def perceive_ball_and_bin(scenario, meshcat):
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
     
-    meshcat.SetObject(
-        "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
-    )
+    # meshcat.SetObject(
+    #     "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
+    # )
 
     # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
     # meshcat.SetObject("p", p, point_size=0.01, rgba=Rgba(0,1,0))
@@ -408,7 +408,7 @@ def perceive_ball_and_bin(scenario, meshcat):
     frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
     X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
     
-    pad = np.array([1, 1, 1])
+    pad = np.array([.5, .75, .75])
     center_W = X_PC_bin1.translation()
     bin1_lower = center_W - pad
     bin1_upper = center_W + pad
@@ -426,9 +426,9 @@ def perceive_ball_and_bin(scenario, meshcat):
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
     
-    meshcat.SetObject(
-        "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
-    )
+    # meshcat.SetObject(
+    #     "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
+    # )
 
     # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
     # meshcat.SetObject("p", p, point_size=0.01, rgba=Rgba(0,1,0))

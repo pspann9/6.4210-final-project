@@ -74,6 +74,9 @@ scenario_data = """
         - add_weld:
             parent: world
             child:  iiwa::iiwa_link_0
+            X_PC:
+                translation: [0, 0, 0]
+                rotation: !Rpy { deg: [0, 0, 0]}
 
         - add_weld:
             parent: iiwa::iiwa_link_7
@@ -85,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_red.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -98,8 +101,8 @@ scenario_data = """
             parent: world
             child: table::table_link
             X_PC:
-                translation: [1.45, 0.0, -0.05]
-                rotation: !Rpy { deg: [0, 0, -90] }
+                translation: [0.0, 0.0, -0.05]
+                rotation: !Rpy { deg: [0, 0, 22.02] }
                 
         - add_model:
             name: bin_red
@@ -109,8 +112,8 @@ scenario_data = """
             parent: world
             child: bin_red::bin_base
             X_PC:
-                translation: [0, -2, 0]
-                rotation: !Rpy { deg: [0, 0, 0] }
+                translation: [.5, -1.854106, 0]
+                rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
             name: bin_green
@@ -120,8 +123,8 @@ scenario_data = """
             parent: world
             child: bin_green::bin_base
             X_PC:
-                translation: [-1, -2, 0]
-                rotation: !Rpy { deg: [0, 0, 0] }
+                translation: [0, -2, 0]
+                rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
             name: bin_blue
@@ -131,8 +134,8 @@ scenario_data = """
             parent: world
             child: bin_blue::bin_base
             X_PC:
-                translation: [1, -2, 0]
-                rotation: !Rpy { deg: [0, 0, 0] }
+                translation: [1, -1.732050, 0]
+                rotation: !Rpy { deg: [0, 0, 22.02] }
                 
                 
         - add_frame:
@@ -522,7 +525,7 @@ closed = 0.0
 # 0.7–0.85 is usually “late in the swing”.
 # release_frac_for_wsg = 1.2
 release_frac_for_wsg = release_frac # 1.2  # try 0.8 first, then tweak
-tune_param = 0.2
+tune_param = 0.16
 
 t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration + tune_param
 
