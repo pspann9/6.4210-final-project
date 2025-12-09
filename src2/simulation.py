@@ -88,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_red.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -633,7 +633,7 @@ def calc_perception_error(p_WO_est: np.ndarray, p_WO_true: np.ndarray) -> float:
     return np.linalg.norm(p_WO_est - p_WO_true)
 # blue bin at [1.0743285625, -1.72288042342, 0.105]
 # red bin at [0.51809674108, -1.9478385547, 0.105]
-print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([1.0743285625, -1.72288042342, 0.105])))
+print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.51809674108, -1.9478385547, 0.105])))
 ###############################################
 
 
@@ -706,4 +706,4 @@ else:
 # red bin at [0.51809674108, -1.9478385547, 0.105]
 def calc_e_to_e_error(p_WB_true: np.ndarray, p_WO_land: np.ndarray) -> float:
     return np.linalg.norm(p_WB_true - p_WO_land)
-print("END-TO-END ERROR", calc_e_to_e_error(np.array([1.0743285625, -1.72288042342, 0.105]), landed_pos))
+print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.51809674108, -1.9478385547, 0.105]), landed_pos))

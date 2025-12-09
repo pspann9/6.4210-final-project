@@ -495,7 +495,7 @@ closed = 0.0
 # 0.7–0.85 is usually “late in the swing”.
 # release_frac_for_wsg = 1.2
 release_frac_for_wsg = release_frac # 1.2  # try 0.8 first, then tweak
-tune_param = 0.16
+tune_param = 0.148
 
 t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration + tune_param
 

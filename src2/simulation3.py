@@ -88,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_red.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -430,7 +430,7 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
 # Ignore the tiny optimized time; use a slower throw the PD can track
 # You can tune this, but 0.4–0.6 is a reasonable starting point.
 # throw_duration = 0.2
-tune_throw_param = 0.2
+tune_throw_param = -0.05
 throw_duration = throw_motion_time + tune_throw_param
 # or, if you want to keep a lower bound:
 # throw_duration = max(0.4, float(throw_motion_time))
@@ -495,7 +495,7 @@ closed = 0.0
 # 0.7–0.85 is usually “late in the swing”.
 # release_frac_for_wsg = 1.2
 release_frac_for_wsg = release_frac # 1.2  # try 0.8 first, then tweak
-tune_param = 0.03
+tune_param = 0.06
 
 t_release_wsg = t_throw_start + release_frac_for_wsg * throw_duration + tune_param
 
@@ -583,28 +583,28 @@ AddFrameTriadIllustration(
 
 diagram = builder.Build()
 
-# Bin interior dimensions, derived from SDF (in bin_base frame)
-BIN_INNER_HALF_X = 0.195  # meters
-BIN_INNER_HALF_Y = 0.265  # meters
-BIN_HEIGHT       = 0.21   # meters (rim height)
+# # Bin interior dimensions, derived from SDF (in bin_base frame)
+# BIN_INNER_HALF_X = 0.195  # meters
+# BIN_INNER_HALF_Y = 0.265  # meters
+# BIN_HEIGHT       = 0.21   # meters (rim height)
 
 
-def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
-    """
-    Returns True if world-frame ball position p_WO is inside the
-    interior of the bin defined by X_WB_bin, using dimensions from the SDF.
-    """
-    # Transform ball position into bin_base frame
-    X_BW = X_WB_bin.inverse()
-    p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
+# def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
+#     """
+#     Returns True if world-frame ball position p_WO is inside the
+#     interior of the bin defined by X_WB_bin, using dimensions from the SDF.
+#     """
+#     # Transform ball position into bin_base frame
+#     X_BW = X_WB_bin.inverse()
+#     p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
 
-    x, y, z = p_BO
+#     x, y, z = p_BO
 
-    in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
-    in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
-    in_z = (0.0 <= z <= BIN_HEIGHT)
+#     in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
+#     in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
+#     in_z = (0.0 <= z <= BIN_HEIGHT)
 
-    return in_x and in_y and in_z
+#     return in_x and in_y and in_z
 
 
 p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height
@@ -613,7 +613,7 @@ def calc_perception_error(p_WO_est: np.ndarray, p_WO_true: np.ndarray) -> float:
     return np.linalg.norm(p_WO_est - p_WO_true)
 # blue bin at [0.60669325893, -0.8333204453, 0.105]
 # red bin at [0.14316674108, -1.0207855547, 0.105]
-print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.14316674108, -1.0207855547, 0.105])))
+print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.60669325893, -0.8333204453, 0.105])))
 ###############################################
 
 
@@ -686,4 +686,4 @@ else:
 # red bin at [0.14316674108, -1.0207855547, 0.105]
 def calc_e_to_e_error(p_WB_true: np.ndarray, p_WO_land: np.ndarray) -> float:
     return np.linalg.norm(p_WB_true - p_WO_land)
-print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.14316674108, -1.0207855547, 0.105]), landed_pos))
+print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.60669325893, -0.8333204453, 0.105]), landed_pos))
