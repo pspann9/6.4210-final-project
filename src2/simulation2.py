@@ -116,17 +116,6 @@ scenario_data = """
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
-            name: bin_green
-            file: file:///workspaces/6.4210-final-project/sdfs/bin_green.sdf
-            
-        - add_weld:
-            parent: world
-            child: bin_green::bin_base
-            X_PC:
-                translation: [0.09886848215, -1.5780446094, 0]
-                rotation: !Rpy { deg: [0, 0, 22.02] }
-
-        - add_model:
             name: bin_blue
             file: file:///workspaces/6.4210-final-project/sdfs/bin_blue.sdf
             
@@ -200,21 +189,6 @@ scenario_data = """
             parent: camera3_origin
             child: camera3::base
 
-        - add_frame:
-            name: camera4_origin
-            X_PF:
-                base_frame: world
-                rotation: !Rpy { deg: [-90.0, 0.0, 0.0]}
-                translation: [0.562395, -1.3905795, 3] # [-0.8, 0.1, 0.5]
-
-        - add_model:
-            name: camera4
-            file: package://manipulation/camera_box.sdf
-
-        - add_weld:
-            parent: camera4_origin
-            child: camera4::base
-
         model_drivers:
             iiwa: !IiwaDriver
                 hand_model_name: wsg
@@ -245,12 +219,6 @@ scenario_data = """
                 rgb: True
                 X_PB:
                     base_frame: camera3::base
-            camera4:
-                name: camera4
-                depth: True
-                rgb: True
-                X_PB:
-                    base_frame: camera4::base
     """
 
 scenario = LoadScenario(data=scenario_data)
@@ -639,7 +607,39 @@ def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
     return in_x and in_y and in_z
 
 
-T_final = 13.0
+p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height
+
+def calc_perception_error(p_WO_est: np.ndarray, p_WO_true: np.ndarray) -> float:
+    return np.linalg.norm(p_WO_est - p_WO_true)
+# blue bin at [1.30609182142, -1.62914786872, 0.105]
+# red bin at [0.74986, -1.854106, 0.105]
+# green bin at [0.19362817858, -2.07906413128, 0.105]
+print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.19362817858, -2.07906413128, 0.105])))
+###############################################
+
+
+
+
+BIN_HEIGHT       = 0.105  # meters (rim height)
+
+
+def ball_across_y(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
+    """
+    Returns True if world-frame ball position p_WO is inside the
+    interior of the bin defined by X_WB_bin, using dimensions from the SDF.
+    """
+    p_WO = p_WO
+
+    x, y, z = p_WO
+
+    fine_y = y <= -.6
+
+    in_z = (BIN_HEIGHT - .002 <= z <= BIN_HEIGHT + .002)
+
+    return fine_y and in_z
+
+
+T_final = 15.0
 
 # Define the simulator.
 simulator = Simulator(diagram)
@@ -647,7 +647,7 @@ context = simulator.get_mutable_context()
 station_context = station.GetMyContextFromRoot(context)
 diagram.ForcedPublish(context)
 
-dt = 0.01  # how often to check ball pose
+dt = 0.001  # how often to check ball pose
 
 plant_context = plant.GetMyContextFromRoot(context)
 
@@ -668,7 +668,7 @@ while simulator.get_context().get_time() < T_final:
     X_WO = plant.EvalBodyPoseInWorld(plant_context, ball_body_eval)
     p_WO = X_WO.translation()
 
-    if ball_in_bin(p_WO, X_WB_bin) and landed_pos is None:
+    if ball_across_y(p_WO, X_WB_bin) and landed_pos is None:
         landed_pos = p_WO.copy()
         landed_time = simulator.get_context().get_time()
         print("Ball entered bin interior at time", landed_time, "at position", landed_pos)
@@ -683,13 +683,9 @@ if landed_pos is None:
 else:
     print("Recorded landing position:", landed_pos)
 
-
-# run simulation!
-# meshcat.StartRecording()
-# if running_as_notebook:
-#     simulator.set_target_realtime_rate(1.0)
-# simulator.AdvanceTo(T_final)
-
-# meshcat.StopRecording()
-# meshcat.PublishRecording()
-
+# blue bin at [1.30609182142, -1.62914786872, 0.105]
+# red bin at [0.74986, -1.854106, 0.105]
+# green bin at [0.19362817858, -2.07906413128, 0.105]
+def calc_e_to_e_error(p_WB_true: np.ndarray, p_WO_land: np.ndarray) -> float:
+    return np.linalg.norm(p_WB_true - p_WO_land)
+print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.19362817858, -2.07906413128, 0.105]), landed_pos))

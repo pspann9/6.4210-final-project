@@ -236,7 +236,6 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_ball_point_cloud = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
     camera2_ball_point_cloud = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
     camera3_ball_point_cloud = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
-    camera4_ball_point_cloud = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(ball_lower, ball_upper)
     
     
     if ball_lower is not None and ball_upper is not None:
@@ -247,7 +246,7 @@ def perceive_ball_and_bin(scenario, meshcat):
             1.0,
             Rgba(0, 0, 0),
         )
-    merged_point_cloud = Concatenate([camera0_ball_point_cloud, camera1_ball_point_cloud, camera2_ball_point_cloud, camera3_ball_point_cloud, camera4_ball_point_cloud])
+    merged_point_cloud = Concatenate([camera0_ball_point_cloud, camera1_ball_point_cloud, camera2_ball_point_cloud, camera3_ball_point_cloud])
     downsampled_point_cloud = merged_point_cloud.VoxelizedDownSample(0.005)
     
     ball_point_cloud = remove_table_points(merged_point_cloud)
@@ -310,11 +309,10 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-    camera4_bin1_pc = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
 
 
     ####################
-    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc, camera4_bin1_pc])
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
     merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
@@ -350,34 +348,6 @@ def perceive_ball_and_bin(scenario, meshcat):
     X_WB_bin_red = bin1_X_Ohat
 
     ################## Bin pose ###################
-    model_bin1 = plant.GetModelInstanceByName("bin_green")
-    frame_bin1 = plant.GetFrameByName("bin_base", model_instance=model_bin1)
-    X_PC_bin1 = plant.CalcRelativeTransform(plant_context, world_frame, frame_bin1)
-    
-    pad = np.array([.3, .4, .4])
-    center_W = X_PC_bin1.translation()
-    bin1_lower = center_W - pad
-    bin1_upper = center_W + pad
-
-    camera0_bin1_pc = diagram.GetOutputPort("camera0_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-    camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-    camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-    camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-    camera4_bin1_pc = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-
-
-    ####################
-    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc, camera4_bin1_pc])
-    merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
-    merged_bin1_pc = remove_table_points(merged_bin1_pc)
-    # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
-    
-    # meshcat.SetObject(
-    #     "bin1_point_cloud", merged_bin1_pc, point_size=0.05, rgba=Rgba(0, 0, 1)
-    # )
-
-    # p = Concatenate([diagram.GetOutputPort("camera0_point_cloud").Eval(context), diagram.GetOutputPort("camera1_point_cloud").Eval(context), diagram.GetOutputPort("camera2_point_cloud").Eval(context), diagram.GetOutputPort("camera3_point_cloud").Eval(context)])
-    # meshcat.SetObject("p", p, point_size=0.01, rgba=Rgba(0,1,0))
 
     sdf_path_bin = Path("sdfs/bin.sdf")
     obj_path_bin = (sdf_path_bin.parent / "bin.obj")
@@ -417,11 +387,10 @@ def perceive_ball_and_bin(scenario, meshcat):
     camera1_bin1_pc = diagram.GetOutputPort("camera1_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera2_bin1_pc = diagram.GetOutputPort("camera2_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
     camera3_bin1_pc = diagram.GetOutputPort("camera3_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
-    camera4_bin1_pc = diagram.GetOutputPort("camera4_point_cloud").Eval(context).Crop(bin1_lower, bin1_upper)
 
 
     ####################
-    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc, camera4_bin1_pc])
+    merged_bin1_pc = Concatenate([camera0_bin1_pc, camera1_bin1_pc, camera2_bin1_pc, camera3_bin1_pc])
     merged_bin1_pc = merged_bin1_pc.VoxelizedDownSample(0.005)
     merged_bin1_pc = remove_table_points(merged_bin1_pc)
     # merged_bin1_pc = remove_non_back_points(merged_bin1_pc)
@@ -463,9 +432,6 @@ def perceive_ball_and_bin(scenario, meshcat):
     if ball_color_vec[0] > ball_color_vec[1] and ball_color_vec[0] > ball_color_vec[2]:
         ball_color = 'red'
         X_WB_bin = X_WB_bin_red
-    elif ball_color_vec[1] > ball_color_vec[0] and ball_color_vec[1] > ball_color_vec[2]:
-        ball_color = 'green'
-        X_WB_bin = X_WB_bin_green
     else:
         ball_color = 'blue'
         X_WB_bin = X_WB_bin_blue
