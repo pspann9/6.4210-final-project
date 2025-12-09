@@ -424,6 +424,10 @@ R_WG = X_WG_hold.rotation()
 p_hold = X_WG_hold.translation()
 p_WB = X_WB_bin.translation()
 
+###############################################
+p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height
+###############################################
+
 res = scipy.optimize.differential_evolution(
     lambda inp: throw_objective(
         inp,
@@ -602,23 +606,25 @@ BIN_INNER_HALF_Y = 0.1325  # previously 0.265
 BIN_HEIGHT       = 0.025   # previously 0.21
 
 
-def ball_in_bin(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
+def ball_across_y(p_WO: np.ndarray, X_WB_bin: RigidTransform) -> bool:
     """
     Returns True if world-frame ball position p_WO is inside the
     interior of the bin defined by X_WB_bin, using dimensions from the SDF.
     """
-    p_WO = p_WO - np.array([0, 0, 0.04]) # find base of object...
+    p_WO = p_WO
     # Transform ball position into bin_base frame
-    X_BW = X_WB_bin.inverse()
-    p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
+    # X_BW = X_WB_bin.inverse()
+    # p_BO = X_BW.multiply(p_WO)  # 3D point in bin frame
 
-    x, y, z = p_BO
+    # x, y, z = p_BO
 
-    in_x = (-BIN_INNER_HALF_X <= x <= BIN_INNER_HALF_X)
-    in_y = (-BIN_INNER_HALF_Y <= y <= BIN_INNER_HALF_Y)
-    in_z = (0.0 <= z <= .02)
+    x, y, z = p_WO
 
-    return in_x and in_y and in_z
+    fine_y = y <= -.6
+
+    in_z = (BIN_HEIGHT - .0025 <= z <= BIN_HEIGHT + .0025)
+
+    return fine_y and in_z
 
 
 p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height

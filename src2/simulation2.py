@@ -243,8 +243,8 @@ class TimeVaryingGains(LeafSystem):
             kd = 100.0
         else:
             # late prethrow pause + throw -> aggressive
-            kp = 3000.0
-            kd = 1.0
+            kp = 1000.0
+            kd = 50.0
 
         output.SetFromVector([kp, kd])
 
@@ -430,7 +430,7 @@ print("opt throw_time", throw_motion_time, "release_frac", release_frac)
 # Ignore the tiny optimized time; use a slower throw the PD can track
 # You can tune this, but 0.4–0.6 is a reasonable starting point.
 # throw_duration = 0.2
-tune_throw_param = -.05
+tune_throw_param = 0.15
 throw_duration = throw_motion_time + tune_throw_param
 # or, if you want to keep a lower bound:
 # throw_duration = max(0.4, float(throw_motion_time))
