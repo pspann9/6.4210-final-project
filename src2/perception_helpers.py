@@ -335,8 +335,8 @@ def perceive_ball_and_bin(scenario, meshcat):
 
     # Run ICP
     initial_guess_bin1 = RigidTransform(
-        RotationMatrix.MakeXRotation(90.0),  
-        [ 0.0, 1.0, 0.0 ]      
+        RotationMatrix.MakeZRotation(0),  
+        [ 0.25, -1.5, 0.0 ]      
     )  # rough initial position
     bin1_X_Ohat, error_bin1 = IterativeClosestPoint(
         p_Om=bin1_points,
@@ -349,28 +349,28 @@ def perceive_ball_and_bin(scenario, meshcat):
 
     ################## Bin pose ###################
 
-    sdf_path_bin = Path("sdfs/bin.sdf")
-    obj_path_bin = (sdf_path_bin.parent / "bin.obj")
-    bin1_mesh = trimesh.load(obj_path_bin.as_posix(), force='mesh')
+    # sdf_path_bin = Path("sdfs/bin.sdf")
+    # obj_path_bin = (sdf_path_bin.parent / "bin.obj")
+    # bin1_mesh = trimesh.load(obj_path_bin.as_posix(), force='mesh')
 
-    # bin1_mesh = trimesh.load("sdfs/construction_cone.obj", force='mesh')
-    bin1_points = bin1_mesh.sample(N_SAMPLE_POINTS).T
-    bin1_cloud = PointCloud(bin1_points.shape[1])
-    bin1_cloud.mutable_xyzs()[:] = bin1_points
+    # # bin1_mesh = trimesh.load("sdfs/construction_cone.obj", force='mesh')
+    # bin1_points = bin1_mesh.sample(N_SAMPLE_POINTS).T
+    # bin1_cloud = PointCloud(bin1_points.shape[1])
+    # bin1_cloud.mutable_xyzs()[:] = bin1_points
 
-    # Run ICP
-    initial_guess_bin1 = RigidTransform(
-        RotationMatrix.MakeXRotation(90.0),  
-        [ 0.0, 1.0, 0.0 ]      
-    )  # rough initial position
-    bin1_X_Ohat, error_bin1 = IterativeClosestPoint(
-        p_Om=bin1_points,
-        p_Ws=merged_bin1_pc.xyzs(),
-        X_Ohat=initial_guess_bin1,
-        max_iterations=MAX_ITERATIONS,
-    )
+    # # Run ICP
+    # initial_guess_bin1 = RigidTransform(
+    #     RotationMatrix.MakeXRotation(90.0),  
+    #     [ 0.0, 1.0, 0.0 ]      
+    # )  # rough initial position
+    # bin1_X_Ohat, error_bin1 = IterativeClosestPoint(
+    #     p_Om=bin1_points,
+    #     p_Ws=merged_bin1_pc.xyzs(),
+    #     X_Ohat=initial_guess_bin1,
+    #     max_iterations=MAX_ITERATIONS,
+    # )
     
-    X_WB_bin_green = bin1_X_Ohat
+    # X_WB_bin_green = bin1_X_Ohat
 
 
     ################## Bin pose ###################
@@ -413,8 +413,8 @@ def perceive_ball_and_bin(scenario, meshcat):
 
     # Run ICP
     initial_guess_bin1 = RigidTransform(
-        RotationMatrix.MakeXRotation(90.0),  
-        [ 0.0, 1.0, 0.0 ]      
+        RotationMatrix.MakeZRotation(0),  
+        [ 0.75, -1.5, 0.0 ]      
     )  # rough initial position
     bin1_X_Ohat, error_bin1 = IterativeClosestPoint(
         p_Om=bin1_points,
