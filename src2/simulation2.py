@@ -88,7 +88,7 @@ scenario_data = """
 
         - add_model:
             name: ball
-            file: file:///workspaces/6.4210-final-project/sdfs/sphere_blue.sdf
+            file: file:///workspaces/6.4210-final-project/sdfs/sphere_red.sdf
             default_free_body_pose:
                 body_link:
                     translation: [0.55, 0, 0.0]
@@ -112,7 +112,7 @@ scenario_data = """
             parent: world
             child: bin_red::bin_base
             X_PC:
-                translation: [0.562395, -1.3905795, 0]
+                translation: [0.33063174108, -1.4843120547, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
@@ -123,7 +123,7 @@ scenario_data = """
             parent: world
             child: bin_blue::bin_base
             X_PC:
-                translation: [1.02592151785, -1.2031143906, 0]
+                translation: [0.79415825893, -1.2968469453, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
                 
                 
@@ -611,10 +611,9 @@ p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height
 
 def calc_perception_error(p_WO_est: np.ndarray, p_WO_true: np.ndarray) -> float:
     return np.linalg.norm(p_WO_est - p_WO_true)
-# blue bin at [1.30609182142, -1.62914786872, 0.105]
-# red bin at [0.74986, -1.854106, 0.105]
-# green bin at [0.19362817858, -2.07906413128, 0.105]
-print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.19362817858, -2.07906413128, 0.105])))
+# blue bin at [0.79415825893, -1.2968469453, 0.105]
+# red bin at [0.33063174108, -1.4843120547, 0]
+print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.33063174108, -1.4843120547, 0])))
 ###############################################
 
 
@@ -683,9 +682,8 @@ if landed_pos is None:
 else:
     print("Recorded landing position:", landed_pos)
 
-# blue bin at [1.30609182142, -1.62914786872, 0.105]
-# red bin at [0.74986, -1.854106, 0.105]
-# green bin at [0.19362817858, -2.07906413128, 0.105]
+# blue bin at [0.79415825893, -1.2968469453, 0.105]
+# red bin at [0.33063174108, -1.4843120547, 0]
 def calc_e_to_e_error(p_WB_true: np.ndarray, p_WO_land: np.ndarray) -> float:
     return np.linalg.norm(p_WB_true - p_WO_land)
-print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.19362817858, -2.07906413128, 0.105]), landed_pos))
+print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.33063174108, -1.4843120547, 0]), landed_pos))

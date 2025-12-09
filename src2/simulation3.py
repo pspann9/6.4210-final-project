@@ -112,7 +112,7 @@ scenario_data = """
             parent: world
             child: bin_red::bin_base
             X_PC:
-                translation: [0.37493, -0.927053, 0]
+                translation: [0.14316674108, -1.0207855547, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
 
         - add_model:
@@ -123,7 +123,7 @@ scenario_data = """
             parent: world
             child: bin_blue::bin_base
             X_PC:
-                translation: [0.83845651785, -0.7395878906, 0]
+                translation: [0.60669325893, -0.8333204453, 0]
                 rotation: !Rpy { deg: [0, 0, 22.02] }
                 
                 
@@ -611,10 +611,9 @@ p_WB = np.array([p_WB[0], p_WB[1], 0.105]) # aim for known height
 
 def calc_perception_error(p_WO_est: np.ndarray, p_WO_true: np.ndarray) -> float:
     return np.linalg.norm(p_WO_est - p_WO_true)
-# blue bin at [1.30609182142, -1.62914786872, 0.105]
-# red bin at [0.74986, -1.854106, 0.105]
-# green bin at [0.19362817858, -2.07906413128, 0.105]
-print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.19362817858, -2.07906413128, 0.105])))
+# blue bin at [0.60669325893, -0.8333204453, 0.105]
+# red bin at [0.14316674108, -1.0207855547, 0.105]
+print("PERCEPTION ERROR", calc_perception_error(p_WB, np.array([0.14316674108, -1.0207855547, 0.105])))
 ###############################################
 
 
@@ -683,9 +682,8 @@ if landed_pos is None:
 else:
     print("Recorded landing position:", landed_pos)
 
-# blue bin at [1.30609182142, -1.62914786872, 0.105]
-# red bin at [0.74986, -1.854106, 0.105]
-# green bin at [0.19362817858, -2.07906413128, 0.105]
+# blue bin at [0.60669325893, -0.8333204453, 0.105]
+# red bin at [0.14316674108, -1.0207855547, 0.105]
 def calc_e_to_e_error(p_WB_true: np.ndarray, p_WO_land: np.ndarray) -> float:
     return np.linalg.norm(p_WB_true - p_WO_land)
-print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.19362817858, -2.07906413128, 0.105]), landed_pos))
+print("END-TO-END ERROR", calc_e_to_e_error(np.array([0.14316674108, -1.0207855547, 0.105]), landed_pos))
